@@ -1,0 +1,90 @@
+Interview Preparation Document - Behavioral Questions
+
+1. Tell me about a time you led a difficult project
+
+In my previous role as a senior developer at TechCorp, I led a team of 5 developers on a critical migration project from a monolithic architecture to microservices. The company needed to scale rapidly, and our legacy system couldn't handle the load.
+
+My task was to migrate the entire system within 3 months while maintaining 99.9% uptime and ensuring zero data loss.
+
+I took several key actions:
+- Created a detailed migration plan with phased rollouts
+- Set up daily standups and weekly demos to stakeholders
+- Implemented comprehensive CI/CD pipelines for each microservice
+- Established monitoring and alerting for every component
+- Created rollback procedures for each phase
+
+The result was exceptional - we completed the migration 2 weeks ahead of schedule, reduced deployment time from 4 hours to 15 minutes (70% improvement), and increased system throughput by 300%. The team praised the clear communication and structured approach, and we had zero critical incidents during the migration.
+
+---
+
+2. Describe a situation where you had to deal with conflict in your team
+
+At DataFlow Inc., two senior engineers on my team had a significant disagreement about API design. The frontend engineer wanted a GraphQL API for flexibility, while the backend engineer insisted on REST for simplicity and caching.
+
+My task was to resolve this conflict quickly as it was blocking the entire project timeline.
+
+I took these actions:
+- Scheduled a 2-hour design review meeting with both engineers
+- Asked each to prepare a 15-minute presentation on their approach
+- Had them document pros/cons in a shared document
+- Brought in our architect for an objective third opinion
+- Created a proof-of-concept for both approaches
+
+The outcome was that we decided on a hybrid approach: REST for public APIs (better caching and documentation) and GraphQL for internal tools (flexibility for our frontend team). Both engineers felt heard and appreciated the data-driven decision. The project delivered on time, and the API design has served us well for 2 years.
+
+---
+
+3. Tell me about a time you failed
+
+During my time at StartupXYZ, I was responsible for implementing a new caching layer to improve application performance. I was confident in my Redis implementation and pushed it to production without sufficient load testing.
+
+Within hours, we experienced cascading failures. The cache was creating memory pressure, and when it failed, all requests hit the database directly, causing a complete outage. We were down for 3 hours, affecting thousands of users.
+
+I took immediate action:
+- Rolled back the change within 15 minutes
+- Set up a war room with the team
+- Created a detailed post-mortem document
+- Implemented a comprehensive load testing process
+- Set up staging environment that mirrors production
+
+This failure taught me invaluable lessons:
+- Always load test in a production-like environment
+- Implement circuit breakers and graceful degradation
+- Never skip the staging phase, no matter how confident
+- Have rollback procedures ready before deploying
+
+Since then, I've championed a "blameless post-mortem" culture and our deployment success rate improved to 99.8%. This experience made me a much better engineer.
+
+---
+
+4. Describe a time you had to learn a new technology quickly
+
+At my current company, we decided to migrate our infrastructure to Kubernetes, and I had zero container orchestration experience. The deadline was 6 weeks.
+
+I needed to not only learn Kubernetes but also become the technical leader for the migration, as I was the most senior infrastructure engineer.
+
+My approach:
+- Dedicated 2 hours daily to Kubernetes tutorials and official documentation
+- Set up a home lab with Minikube to practice
+- Completed the Certified Kubernetes Administrator (CKA) course
+- Joined Kubernetes community Slack for real-world insights
+- Pair programmed with a contractor who had K8s experience
+- Created internal documentation and training materials as I learned
+
+Within 4 weeks, I successfully:
+- Migrated 15 microservices to Kubernetes
+- Set up automated CI/CD with ArgoCD
+- Implemented proper monitoring with Prometheus and Grafana
+- Trained 3 other engineers on Kubernetes basics
+- Reduced infrastructure costs by 40% through better resource utilization
+
+The key was structured learning combined with immediate practical application. I'm now the go-to Kubernetes expert in the company.
+
+---
+
+Technical Tips:
+- Use STAR format (Situation, Task, Action, Result) for all behavioral questions
+- Include specific metrics and numbers
+- Show leadership even when not in a leadership role
+- Demonstrate learning from failures
+- Focus on impact, not just activities
