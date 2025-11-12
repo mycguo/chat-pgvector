@@ -1,7 +1,8 @@
 """
 Resume Database
 
-JSON-based storage for resumes and versions with file management.
+Uses PostgreSQL + pgvector as the single source of truth.
+Maintains backward compatibility with existing API.
 """
 
 import os
@@ -13,6 +14,7 @@ from datetime import datetime
 from models.resume import Resume, ResumeVersion
 from storage.user_utils import get_user_data_dir
 from storage.encryption import encrypt_data, decrypt_data, is_encryption_enabled
+from storage.pg_vector_store import PgVectorStore
 
 
 class ResumeDB:
@@ -32,7 +34,11 @@ class ResumeDB:
         self.data_dir = data_dir
         self.user_id = user_id
         self._encryption_enabled = is_encryption_enabled()
-        self.resumes_file = os.path.join(data_dir, "resumes.json")
+        
+        # Initialize pgvector store for resumes
+        self.resumes_store = PgVectorStore(collection_name="resumes", user_id=user_id)
+        
+        # Keep JSON file for versions (not yet migrated)
         self.versions_file = os.path.join(data_dir, "versions.json")
         self.files_dir = os.path.join(data_dir, "files")
 
@@ -44,9 +50,8 @@ class ResumeDB:
         os.makedirs(self.data_dir, exist_ok=True)
         os.makedirs(self.files_dir, exist_ok=True)
 
-        for file_path in [self.resumes_file, self.versions_file]:
-            if not os.path.exists(file_path):
-                self._write_json(file_path, [])
+        if not os.path.exists(self.versions_file):
+            self._write_json(self.versions_file, [])
 
     def _read_json(self, file_path: str) -> List[dict]:
         """Read JSON file (with optional decryption)"""
@@ -99,31 +104,26 @@ class ResumeDB:
         Returns:
             Resume ID
         """
-        resumes = self._read_json(self.resumes_file)
-
         # Store file if provided
         if file_bytes and resume.original_filename:
             file_path = self._store_file(resume.id, resume.original_filename, file_bytes)
             resume.file_path = file_path
 
-        resumes.append(resume.to_dict())
-        self._write_json(self.resumes_file, resumes)
-        
-        # Sync to vector store
+        # Add to vector store (which stores full structured data)
         try:
             from storage.vector_sync import sync_resume_to_vector_store
             sync_resume_to_vector_store(resume, self.user_id)
         except Exception as e:
-            print(f"Warning: Could not sync resume to vector store: {e}")
+            print(f"Warning: Could not add resume to vector store: {e}")
+            raise
         
         return resume.id
 
     def get_resume(self, resume_id: str) -> Optional[Resume]:
         """Get resume by ID"""
-        resumes = self._read_json(self.resumes_file)
-        for r in resumes:
-            if r['id'] == resume_id:
-                return Resume.from_dict(r)
+        r_dict = self.resumes_store.get_by_record_id('resume', resume_id)
+        if r_dict:
+            return Resume.from_dict(r_dict)
         return None
 
     def list_resumes(
@@ -143,51 +143,63 @@ class ResumeDB:
         Returns:
             List of Resume instances
         """
-        resumes = self._read_json(self.resumes_file)
+        # Build filters
+        filters = {}
+        if is_master is not None:
+            filters['is_master'] = str(is_master).lower()  # Convert bool to string for JSONB
+        if is_active is not None:
+            filters['is_active'] = str(is_active).lower()
+        if tailored_for_company:
+            filters['tailored_for_company'] = tailored_for_company
+        
+        # Query from pgvector
+        r_dicts = self.resumes_store.list_records(
+            record_type='resume',
+            filters=filters if filters else None,
+            limit=1000
+        )
+        
         result = []
-
-        for r_data in resumes:
-            r = Resume.from_dict(r_data)
-
-            # Apply filters
+        for r_dict in r_dicts:
+            r = Resume.from_dict(r_dict)
+            
+            # Apply boolean filters (since JSONB stores them as strings)
             if is_master is not None and r.is_master != is_master:
                 continue
             if is_active is not None and r.is_active != is_active:
                 continue
-            if tailored_for_company and r.tailored_for_company != tailored_for_company:
-                continue
-
+            
             result.append(r)
 
         return result
 
     def update_resume(self, resume: Resume):
         """Update resume"""
-        resumes = self._read_json(self.resumes_file)
-
-        for i, r in enumerate(resumes):
-            if r['id'] == resume.id:
-                resume.updated_at = datetime.now().isoformat()
-                resumes[i] = resume.to_dict()
-                self._write_json(self.resumes_file, resumes)
-                
-                # Sync to vector store
-                try:
-                    from storage.vector_sync import sync_resume_to_vector_store
-                    sync_resume_to_vector_store(resume, self.user_id)
-                except Exception as e:
-                    print(f"Warning: Could not sync resume to vector store: {e}")
-                
-                return True
-
-        return False
+        # Check if exists
+        existing = self.resumes_store.get_by_record_id('resume', resume.id)
+        if not existing:
+            return False
+        
+        resume.updated_at = datetime.now().isoformat()
+        
+        # Update in vector store
+        try:
+            from storage.vector_sync import sync_resume_to_vector_store
+            sync_resume_to_vector_store(resume, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not update resume in vector store: {e}")
+            return False
+        
+        return True
 
     def delete_resume(self, resume_id: str) -> bool:
         """Delete resume and associated files"""
-        resumes = self._read_json(self.resumes_file)
+        # Get resume to check for file
         resume = self.get_resume(resume_id)
+        if not resume:
+            return False
 
-        if resume and resume.file_path:
+        if resume.file_path:
             # Delete associated file
             try:
                 if os.path.exists(resume.file_path):
@@ -195,30 +207,26 @@ class ResumeDB:
             except Exception as e:
                 print(f"Error deleting file: {e}")
 
-        # Remove from database
-        filtered = [r for r in resumes if r['id'] != resume_id]
-
-        if len(filtered) < len(resumes):
-            self._write_json(self.resumes_file, filtered)
-            
-            # Delete from vector store
-            try:
-                from storage.vector_sync import delete_from_vector_store
-                delete_from_vector_store('resume', resume_id, self.user_id)
-            except Exception as e:
-                print(f"Warning: Could not delete resume from vector store: {e}")
-            
-            return True
-        return False
+        # Delete from vector store
+        try:
+            from storage.vector_sync import delete_from_vector_store
+            success = delete_from_vector_store('resume', resume_id, self.user_id)
+            return success
+        except Exception as e:
+            print(f"Warning: Could not delete resume from vector store: {e}")
+            return False
 
     def set_active_resume(self, resume_id: str):
         """Set a resume as active (deactivate others)"""
-        resumes = self._read_json(self.resumes_file)
+        resumes = self.list_resumes()
 
         for r in resumes:
-            r['is_active'] = (r['id'] == resume_id)
-
-        self._write_json(self.resumes_file, resumes)
+            if r.id == resume_id:
+                r.is_active = True
+                self.update_resume(r)
+            elif r.is_active:
+                r.is_active = False
+                self.update_resume(r)
 
     def get_master_resumes(self) -> List[Resume]:
         """Get all master resumes"""
@@ -235,24 +243,27 @@ class ResumeDB:
 
     def add_version(self, version: ResumeVersion) -> str:
         """Add resume version"""
-        versions = self._read_json(self.versions_file)
-        versions.append(version.to_dict())
-        self._write_json(self.versions_file, versions)
+        # Add to vector store
+        try:
+            from storage.vector_sync import sync_resume_version_to_vector_store
+            sync_resume_version_to_vector_store(version, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not add resume version to vector store: {e}")
+            raise
         return version.id
 
     def get_versions(self, resume_id: str) -> List[ResumeVersion]:
         """Get all versions for a resume"""
-        versions = self._read_json(self.versions_file)
-        result = []
-
-        for v_data in versions:
-            v = ResumeVersion.from_dict(v_data)
-            if v.resume_id == resume_id:
-                result.append(v)
-
-        # Sort by created_at (most recent first)
-        result.sort(key=lambda x: x.created_at, reverse=True)
-        return result
+        # Query from pgvector
+        v_dicts = self.resumes_store.list_records(
+            record_type='resume_version',
+            filters={'resume_id': resume_id},
+            sort_by='created_at',
+            reverse=True,
+            limit=1000
+        )
+        
+        return [ResumeVersion.from_dict(v_dict) for v_dict in v_dicts]
 
     # ========== File Operations ==========
 
@@ -296,23 +307,24 @@ class ResumeDB:
 
     def get_stats(self) -> Dict:
         """Get resume statistics"""
-        resumes = self._read_json(self.resumes_file)
+        # Get data from pgvector
+        resumes = self.list_resumes()
 
-        master_resumes = [r for r in resumes if r.get('is_master', False)]
-        tailored_resumes = [r for r in resumes if not r.get('is_master', False)]
-        active_resumes = [r for r in resumes if r.get('is_active', True)]
+        master_resumes = [r for r in resumes if r.is_master]
+        tailored_resumes = [r for r in resumes if not r.is_master]
+        active_resumes = [r for r in resumes if r.is_active]
 
         # Calculate average success rate
-        total_success = sum(r.get('success_rate', 0) for r in resumes)
+        total_success = sum(r.success_rate for r in resumes)
         avg_success = (total_success / len(resumes)) if len(resumes) > 0 else 0
 
         # Most used resume
         most_used = None
         max_apps = 0
         for r in resumes:
-            if r.get('applications_count', 0) > max_apps:
-                max_apps = r.get('applications_count', 0)
-                most_used = r.get('name', 'Unknown')
+            if r.applications_count > max_apps:
+                max_apps = r.applications_count
+                most_used = r.name
 
         return {
             'total_resumes': len(resumes),
@@ -321,5 +333,5 @@ class ResumeDB:
             'active_resumes': len(active_resumes),
             'average_success_rate': avg_success,
             'most_used_resume': most_used,
-            'total_applications': sum(r.get('applications_count', 0) for r in resumes)
+            'total_applications': sum(r.applications_count for r in resumes)
         }

@@ -19,14 +19,17 @@ except ImportError:
 
 try:
     from models.application import Application
-    from models.interview_prep import InterviewQuestion
-    from models.resume import Resume
+    from models.interview_prep import InterviewQuestion, TechnicalConcept, PracticeSession
+    from models.resume import Resume, ResumeVersion
     HAS_MODELS = True
 except ImportError:
     HAS_MODELS = False
     Application = None
     InterviewQuestion = None
+    TechnicalConcept = None
+    PracticeSession = None
     Resume = None
+    ResumeVersion = None
 
 
 def format_application_text(app: 'Application') -> str:
@@ -231,9 +234,14 @@ def sync_application_to_vector_store(app: 'Application', user_id: Optional[str] 
         if not text:
             return False
         
+        # Store full structured data in metadata
         metadata = {
+            'record_type': 'application',
+            'record_id': app.id,
+            'data': app.to_dict(),  # Full structured data
+            'text': text,  # Formatted text for semantic search
             'source': 'application',
-            'application_id': app.id,
+            'application_id': app.id,  # Keep for backward compatibility
             'company': app.company,
             'role': app.role,
             'status': app.status,
@@ -241,8 +249,8 @@ def sync_application_to_vector_store(app: 'Application', user_id: Optional[str] 
             'timestamp': datetime.now().isoformat(),
         }
         
-        # Delete old entry if exists (by application_id)
-        _delete_by_metadata(vector_store, {'application_id': app.id})
+        # Delete old entry if exists (by record_id)
+        _delete_by_metadata(vector_store, {'record_id': app.id, 'record_type': 'application'})
         
         # Add new entry
         vector_store.add_texts([text], metadatas=[metadata])
@@ -279,9 +287,14 @@ def sync_interview_question_to_vector_store(question: 'InterviewQuestion', user_
         if not text:
             return False
         
+        # Store full structured data in metadata
         metadata = {
+            'record_type': 'question',
+            'record_id': question.id,
+            'data': question.to_dict(),  # Full structured data
+            'text': text,  # Formatted text for semantic search
             'source': 'interview_question',
-            'question_id': question.id,
+            'question_id': question.id,  # Keep for backward compatibility
             'type': question.type,
             'category': question.category,
             'difficulty': question.difficulty,
@@ -290,8 +303,8 @@ def sync_interview_question_to_vector_store(question: 'InterviewQuestion', user_
             'timestamp': datetime.now().isoformat(),
         }
         
-        # Delete old entry if exists (by question_id)
-        _delete_by_metadata(vector_store, {'question_id': question.id})
+        # Delete old entry if exists (by record_id)
+        _delete_by_metadata(vector_store, {'record_id': question.id, 'record_type': 'question'})
         
         # Add new entry
         vector_store.add_texts([text], metadatas=[metadata])
@@ -328,9 +341,14 @@ def sync_resume_to_vector_store(resume: 'Resume', user_id: Optional[str] = None)
         if not text:
             return False
         
+        # Store full structured data in metadata
         metadata = {
+            'record_type': 'resume',
+            'record_id': resume.id,
+            'data': resume.to_dict(),  # Full structured data
+            'text': text,  # Formatted text for semantic search
             'source': 'resume',
-            'resume_id': resume.id,
+            'resume_id': resume.id,  # Keep for backward compatibility
             'name': resume.name,
             'is_master': resume.is_master,
             'tailored_for_company': resume.tailored_for_company,
@@ -338,8 +356,8 @@ def sync_resume_to_vector_store(resume: 'Resume', user_id: Optional[str] = None)
             'timestamp': datetime.now().isoformat(),
         }
         
-        # Delete old entry if exists (by resume_id)
-        _delete_by_metadata(vector_store, {'resume_id': resume.id})
+        # Delete old entry if exists (by record_id)
+        _delete_by_metadata(vector_store, {'record_id': resume.id, 'record_type': 'resume'})
         
         # Add new entry
         vector_store.add_texts([text], metadatas=[metadata])
@@ -427,23 +445,267 @@ def sync_company_to_vector_store(company: Dict, user_id: Optional[str] = None) -
         
         company_id = company.get('id', company.get('name', 'unknown'))
         
+        # Store full structured data in metadata
         metadata = {
+            'record_type': 'company',
+            'record_id': company_id,
+            'data': company,  # Full structured data (already a dict)
+            'text': text,  # Formatted text for semantic search
             'source': 'company',
-            'company_id': company_id,
+            'company_id': company_id,  # Keep for backward compatibility
             'name': company.get('name'),
             'industry': company.get('industry'),
             'type': 'company',
             'timestamp': datetime.now().isoformat(),
         }
         
-        # Delete old entry if exists
-        _delete_by_metadata(vector_store, {'company_id': company_id})
+        # Delete old entry if exists (by record_id)
+        _delete_by_metadata(vector_store, {'record_id': company_id, 'record_type': 'company'})
         
         # Add new entry
         vector_store.add_texts([text], metadatas=[metadata])
         return True
     except Exception as e:
         print(f"Error syncing company to vector store: {e}")
+        return False
+
+
+def sync_quick_note_to_vector_store(note: Dict, user_id: Optional[str] = None) -> bool:
+    """
+    Sync a quick note to the vector store.
+    
+    Args:
+        note: Quick note dictionary
+        user_id: Optional user ID
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    if not HAS_VECTOR_STORE:
+        return False
+    
+    try:
+        if user_id is None:
+            try:
+                user_id = get_user_id()
+            except:
+                user_id = "default_user"
+        
+        vector_store = PgVectorStore(collection_name="quick_notes", user_id=user_id)
+        
+        text = format_contact_text(note)  # Reuse contact formatter
+        if not text:
+            text = f"Quick Note: {note.get('label', '')}\n{note.get('content', '')}"
+        
+        # Store full structured data in metadata
+        metadata = {
+            'record_type': 'quick_note',
+            'record_id': note.get('id', 'unknown'),
+            'data': note,  # Full structured data
+            'text': text,  # Formatted text for semantic search
+            'source': 'quick_note',
+            'note_id': note.get('id'),
+            'label': note.get('label'),
+            'type': note.get('type', 'text'),
+            'timestamp': datetime.now().isoformat(),
+        }
+        
+        # Delete old entry if exists (by record_id)
+        _delete_by_metadata(vector_store, {'record_id': note.get('id'), 'record_type': 'quick_note'})
+        
+        # Add new entry
+        vector_store.add_texts([text], metadatas=[metadata])
+        return True
+    except Exception as e:
+        print(f"Error syncing quick note to vector store: {e}")
+        return False
+
+
+def sync_concept_to_vector_store(concept: 'TechnicalConcept', user_id: Optional[str] = None) -> bool:
+    """
+    Sync a technical concept to the vector store.
+    
+    Args:
+        concept: TechnicalConcept instance
+        user_id: Optional user ID
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    if not HAS_VECTOR_STORE:
+        return False
+    
+    try:
+        if user_id is None:
+            try:
+                user_id = get_user_id()
+            except:
+                user_id = "default_user"
+        
+        vector_store = PgVectorStore(collection_name="interview_prep", user_id=user_id)
+        
+        # Format concept text
+        parts = [
+            f"Technical Concept: {concept.concept}",
+            f"Category: {concept.category}",
+            f"Content: {concept.content}",
+        ]
+        
+        if concept.key_points:
+            parts.append(f"Key Points: {', '.join(concept.key_points)}")
+        
+        if concept.tags:
+            parts.append(f"Tags: {', '.join(concept.tags)}")
+        
+        text = "\n".join(parts)
+        
+        # Store full structured data in metadata
+        metadata = {
+            'record_type': 'concept',
+            'record_id': concept.id,
+            'data': concept.to_dict(),  # Full structured data
+            'text': text,  # Formatted text for semantic search
+            'source': 'technical_concept',
+            'concept_id': concept.id,
+            'category': concept.category,
+            'timestamp': datetime.now().isoformat(),
+        }
+        
+        # Delete old entry if exists (by record_id)
+        _delete_by_metadata(vector_store, {'record_id': concept.id, 'record_type': 'concept'})
+        
+        # Add new entry
+        vector_store.add_texts([text], metadatas=[metadata])
+        return True
+    except Exception as e:
+        print(f"Error syncing concept to vector store: {e}")
+        return False
+
+
+def sync_practice_session_to_vector_store(session: 'PracticeSession', user_id: Optional[str] = None) -> bool:
+    """
+    Sync a practice session to the vector store.
+    
+    Args:
+        session: PracticeSession instance
+        user_id: Optional user ID
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    if not HAS_VECTOR_STORE:
+        return False
+    
+    try:
+        if user_id is None:
+            try:
+                user_id = get_user_id()
+            except:
+                user_id = "default_user"
+        
+        vector_store = PgVectorStore(collection_name="interview_prep", user_id=user_id)
+        
+        # Format session text
+        parts = [
+            f"Practice Session: {session.date}",
+            f"Type: {session.session_type}",
+            f"Duration: {session.duration_minutes} minutes",
+        ]
+        
+        if session.notes:
+            parts.append(f"Notes: {session.notes}")
+        
+        if session.areas_to_improve:
+            parts.append(f"Areas to Improve: {', '.join(session.areas_to_improve)}")
+        
+        if session.next_goals:
+            parts.append(f"Next Goals: {', '.join(session.next_goals)}")
+        
+        text = "\n".join(parts)
+        
+        # Store full structured data in metadata
+        metadata = {
+            'record_type': 'practice_session',
+            'record_id': session.id,
+            'data': session.to_dict(),  # Full structured data
+            'text': text,  # Formatted text for semantic search
+            'source': 'practice_session',
+            'session_id': session.id,
+            'date': session.date,
+            'session_type': session.session_type,
+            'timestamp': datetime.now().isoformat(),
+        }
+        
+        # Delete old entry if exists (by record_id)
+        _delete_by_metadata(vector_store, {'record_id': session.id, 'record_type': 'practice_session'})
+        
+        # Add new entry
+        vector_store.add_texts([text], metadatas=[metadata])
+        return True
+    except Exception as e:
+        print(f"Error syncing practice session to vector store: {e}")
+        return False
+
+
+def sync_resume_version_to_vector_store(version: 'ResumeVersion', user_id: Optional[str] = None) -> bool:
+    """
+    Sync a resume version to the vector store.
+    
+    Args:
+        version: ResumeVersion instance
+        user_id: Optional user ID
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    if not HAS_VECTOR_STORE:
+        return False
+    
+    try:
+        if user_id is None:
+            try:
+                user_id = get_user_id()
+            except:
+                user_id = "default_user"
+        
+        vector_store = PgVectorStore(collection_name="resumes", user_id=user_id)
+        
+        # Format version text
+        parts = [
+            f"Resume Version: {version.version}",
+            f"Resume ID: {version.resume_id}",
+            f"Changes: {version.changes_summary}",
+            f"Changed by: {version.changed_by}",
+        ]
+        
+        if version.full_text:
+            # Use first 500 chars
+            summary = version.full_text[:500] + "..." if len(version.full_text) > 500 else version.full_text
+            parts.append(f"Content: {summary}")
+        
+        text = "\n".join(parts)
+        
+        # Store full structured data in metadata
+        metadata = {
+            'record_type': 'resume_version',
+            'record_id': version.id,
+            'data': version.to_dict(),  # Full structured data
+            'text': text,  # Formatted text for semantic search
+            'source': 'resume_version',
+            'version_id': version.id,
+            'resume_id': version.resume_id,
+            'version': version.version,
+            'timestamp': datetime.now().isoformat(),
+        }
+        
+        # Delete old entry if exists (by record_id)
+        _delete_by_metadata(vector_store, {'record_id': version.id, 'record_type': 'resume_version'})
+        
+        # Add new entry
+        vector_store.add_texts([text], metadatas=[metadata])
+        return True
+    except Exception as e:
+        print(f"Error syncing resume version to vector store: {e}")
         return False
 
 
@@ -475,6 +737,10 @@ def delete_from_vector_store(source_type: str, record_id: str, user_id: Optional
             'resume': 'resumes',
             'contact': 'contacts',
             'company': 'companies',
+            'quick_note': 'quick_notes',
+            'concept': 'interview_prep',
+            'practice_session': 'interview_prep',
+            'resume_version': 'resumes',
         }
         
         collection_name = collection_map.get(source_type, 'personal_assistant')
@@ -486,6 +752,10 @@ def delete_from_vector_store(source_type: str, record_id: str, user_id: Optional
             'resume': 'resume_id',
             'contact': 'contact_id',
             'company': 'company_id',
+            'quick_note': 'note_id',
+            'concept': 'concept_id',
+            'practice_session': 'session_id',
+            'resume_version': 'version_id',
         }
         
         id_field = id_field_map.get(source_type)

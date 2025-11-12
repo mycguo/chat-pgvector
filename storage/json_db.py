@@ -1,8 +1,8 @@
 """
-JSON-based database for job search data.
+Database for job search data.
 
-Simple file-based storage using JSON for quick prototyping.
-Can be upgraded to SQLite or PostgreSQL later.
+Uses PostgreSQL + pgvector as the single source of truth.
+Maintains backward compatibility with existing API.
 """
 
 import json
@@ -12,17 +12,18 @@ from datetime import datetime
 from models.application import Application
 from storage.user_utils import get_user_data_dir
 from storage.encryption import encrypt_data, decrypt_data, is_encryption_enabled
+from storage.pg_vector_store import PgVectorStore
 
 
 class JobSearchDB:
-    """Simple JSON database for job search data"""
+    """Database for job search data using PostgreSQL + pgvector"""
 
     def __init__(self, data_dir: str = None, user_id: str = None):
         """
         Initialize database.
 
         Args:
-            data_dir: Directory to store JSON files (if None, uses user-specific directory)
+            data_dir: Directory to store JSON files (deprecated, kept for compatibility)
             user_id: Optional user ID (if None, will try to get from Streamlit)
         """
         if data_dir is None:
@@ -31,20 +32,19 @@ class JobSearchDB:
         self.data_dir = data_dir
         self.user_id = user_id
         self._encryption_enabled = is_encryption_enabled()
+        
+        # Initialize pgvector stores for each collection
+        self.applications_store = PgVectorStore(collection_name="applications", user_id=user_id)
+        self.companies_store = PgVectorStore(collection_name="companies", user_id=user_id)
+        self.contacts_store = PgVectorStore(collection_name="contacts", user_id=user_id)
+        self.quick_notes_store = PgVectorStore(collection_name="quick_notes", user_id=user_id)
+        
+        # Keep JSON file paths for backward compatibility (profile only)
         os.makedirs(data_dir, exist_ok=True)
-
-        self.applications_file = os.path.join(data_dir, "applications.json")
-        self.contacts_file = os.path.join(data_dir, "contacts.json")
         self.profile_file = os.path.join(data_dir, "profile.json")
-        self.quick_notes_file = os.path.join(data_dir, "quick_notes.json")
-        self.companies_file = os.path.join(data_dir, "companies.json")
 
         # Initialize files if they don't exist
-        self._init_file(self.applications_file, [])
-        self._init_file(self.contacts_file, [])
         self._init_file(self.profile_file, {})
-        self._init_file(self.quick_notes_file, [])
-        self._init_file(self.companies_file, [])
 
     def _init_file(self, filepath: str, default_content):
         """Create file with default content if it doesn't exist"""
@@ -111,24 +111,23 @@ class JobSearchDB:
         Returns:
             Application ID
         """
-        applications = self._read_json(self.applications_file)
-
-        # Check for duplicate
-        for existing in applications:
-            if (existing['company'].lower() == app.company.lower() and
-                existing['role'].lower() == app.role.lower() and
-                existing.get('status') not in ['rejected', 'withdrawn', 'accepted']):
+        # Check for duplicate using pgvector
+        existing_apps = self.applications_store.list_records(
+            record_type='application',
+            filters={'company': app.company, 'role': app.role}
+        )
+        
+        for existing in existing_apps:
+            if existing.get('status') not in ['rejected', 'withdrawn', 'accepted']:
                 raise ValueError(f"Active application already exists for {app.company} - {app.role}")
 
-        applications.append(app.to_dict())
-        self._write_json(self.applications_file, applications)
-
-        # Sync to vector store
+        # Add to vector store (which stores full structured data)
         try:
             from storage.vector_sync import sync_application_to_vector_store
             sync_application_to_vector_store(app, self.user_id)
         except Exception as e:
-            print(f"Warning: Could not sync application to vector store: {e}")
+            print(f"Warning: Could not add application to vector store: {e}")
+            raise
 
         print(f"✅ Added application: {app.company} - {app.role} (ID: {app.id})")
         return app.id
@@ -143,12 +142,9 @@ class JobSearchDB:
         Returns:
             Application instance or None
         """
-        applications = self._read_json(self.applications_file)
-
-        for app_dict in applications:
-            if app_dict['id'] == app_id:
-                return Application.from_dict(app_dict)
-
+        app_dict = self.applications_store.get_by_record_id('application', app_id)
+        if app_dict:
+            return Application.from_dict(app_dict)
         return None
 
     def list_applications(
@@ -163,35 +159,47 @@ class JobSearchDB:
 
         Args:
             status: Filter by status (e.g., 'applied', 'interview')
-            company: Filter by company name (partial match)
+            company: Filter by company name (exact match)
             sort_by: Field to sort by (default: applied_date)
             reverse: Sort in reverse order (default: True - newest first)
 
         Returns:
             List of Application instances
         """
-        applications = self._read_json(self.applications_file)
+        # Build filters
+        filters = {}
+        if status:
+            filters['status'] = status.lower()
+        if company:
+            filters['company'] = company  # Exact match for now
+        
+        # Query from pgvector
+        app_dicts = self.applications_store.list_records(
+            record_type='application',
+            filters=filters if filters else None,
+            sort_by=sort_by,
+            reverse=reverse,
+            limit=1000  # Reasonable limit
+        )
+        
         results = []
-
-        for app_dict in applications:
+        for app_dict in app_dicts:
             app = Application.from_dict(app_dict)
-
-            # Apply filters
-            if status and app.status != status.lower():
-                continue
-
+            
+            # Apply partial match for company if needed
             if company and company.lower() not in app.company.lower():
                 continue
-
+            
             results.append(app)
-
-        # Sort
-        if sort_by == "applied_date":
-            results.sort(key=lambda x: x.applied_date, reverse=reverse)
-        elif sort_by == "company":
-            results.sort(key=lambda x: x.company.lower(), reverse=reverse)
-        elif sort_by == "updated_at":
-            results.sort(key=lambda x: x.updated_at, reverse=reverse)
+        
+        # If company filter was partial match, sort again
+        if company and not filters.get('company'):
+            if sort_by == "applied_date":
+                results.sort(key=lambda x: x.applied_date, reverse=reverse)
+            elif sort_by == "company":
+                results.sort(key=lambda x: x.company.lower(), reverse=reverse)
+            elif sort_by == "updated_at":
+                results.sort(key=lambda x: x.updated_at, reverse=reverse)
 
         return results
 
@@ -206,34 +214,30 @@ class JobSearchDB:
         Returns:
             True if successful, False otherwise
         """
-        applications = self._read_json(self.applications_file)
+        # Get existing application
+        app_dict = self.applications_store.get_by_record_id('application', app_id)
+        if not app_dict:
+            print(f"❌ Application not found: {app_id}")
+            return False
+        
+        # Update fields
+        app = Application.from_dict(app_dict)
+        for key, value in updates.items():
+            if hasattr(app, key):
+                setattr(app, key, value)
 
-        for i, app_dict in enumerate(applications):
-            if app_dict['id'] == app_id:
-                # Update fields
-                app = Application.from_dict(app_dict)
+        app.updated_at = datetime.now().isoformat()
 
-                for key, value in updates.items():
-                    if hasattr(app, key):
-                        setattr(app, key, value)
+        # Update in vector store
+        try:
+            from storage.vector_sync import sync_application_to_vector_store
+            sync_application_to_vector_store(app, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not update application in vector store: {e}")
+            return False
 
-                app.updated_at = datetime.now().isoformat()
-
-                applications[i] = app.to_dict()
-                self._write_json(self.applications_file, applications)
-
-                # Sync to vector store
-                try:
-                    from storage.vector_sync import sync_application_to_vector_store
-                    sync_application_to_vector_store(app, self.user_id)
-                except Exception as e:
-                    print(f"Warning: Could not sync application to vector store: {e}")
-
-                print(f"✅ Updated application: {app.company} - {app.role}")
-                return True
-
-        print(f"❌ Application not found: {app_id}")
-        return False
+        print(f"✅ Updated application: {app.company} - {app.role}")
+        return True
 
     def update_status(self, app_id: str, new_status: str, notes: Optional[str] = None) -> bool:
         """
@@ -247,22 +251,26 @@ class JobSearchDB:
         Returns:
             True if successful
         """
-        applications = self._read_json(self.applications_file)
+        # Get existing application
+        app_dict = self.applications_store.get_by_record_id('application', app_id)
+        if not app_dict:
+            print(f"❌ Application not found: {app_id}")
+            return False
+        
+        app = Application.from_dict(app_dict)
+        old_status = app.status
+        app.update_status(new_status, notes)
 
-        for i, app_dict in enumerate(applications):
-            if app_dict['id'] == app_id:
-                app = Application.from_dict(app_dict)
-                old_status = app.status
-                app.update_status(new_status, notes)
+        # Update in vector store
+        try:
+            from storage.vector_sync import sync_application_to_vector_store
+            sync_application_to_vector_store(app, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not update application status in vector store: {e}")
+            return False
 
-                applications[i] = app.to_dict()
-                self._write_json(self.applications_file, applications)
-
-                print(f"✅ Status updated: {app.company} - {old_status} → {new_status}")
-                return True
-
-        print(f"❌ Application not found: {app_id}")
-        return False
+        print(f"✅ Status updated: {app.company} - {old_status} → {new_status}")
+        return True
 
     def delete_application(self, app_id: str) -> bool:
         """
@@ -274,26 +282,25 @@ class JobSearchDB:
         Returns:
             True if successful
         """
-        applications = self._read_json(self.applications_file)
-        original_length = len(applications)
-
-        applications = [app for app in applications if app['id'] != app_id]
-
-        if len(applications) < original_length:
-            self._write_json(self.applications_file, applications)
-            
-            # Delete from vector store
-            try:
-                from storage.vector_sync import delete_from_vector_store
-                delete_from_vector_store('application', app_id, self.user_id)
-            except Exception as e:
-                print(f"Warning: Could not delete application from vector store: {e}")
-            
-            print(f"✅ Deleted application: {app_id}")
-            return True
-
-        print(f"❌ Application not found: {app_id}")
-        return False
+        # Check if exists
+        app_dict = self.applications_store.get_by_record_id('application', app_id)
+        if not app_dict:
+            print(f"❌ Application not found: {app_id}")
+            return False
+        
+        # Delete from vector store
+        try:
+            from storage.vector_sync import delete_from_vector_store
+            success = delete_from_vector_store('application', app_id, self.user_id)
+            if success:
+                print(f"✅ Deleted application: {app_id}")
+                return True
+            else:
+                print(f"❌ Failed to delete application: {app_id}")
+                return False
+        except Exception as e:
+            print(f"Warning: Could not delete application from vector store: {e}")
+            return False
 
     def add_application_note(self, app_id: str, note: str) -> bool:
         """
@@ -552,8 +559,6 @@ class JobSearchDB:
         Returns:
             Note ID
         """
-        notes = self._read_json(self.quick_notes_file)
-
         # Generate ID
         note_id = f"note_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
 
@@ -566,8 +571,13 @@ class JobSearchDB:
             'updated_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
-        notes.append(note)
-        self._write_json(self.quick_notes_file, notes)
+        # Add to vector store
+        try:
+            from storage.vector_sync import sync_quick_note_to_vector_store
+            sync_quick_note_to_vector_store(note, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not add quick note to vector store: {e}")
+            raise
 
         return note_id
 
@@ -578,7 +588,10 @@ class JobSearchDB:
         Returns:
             List of quick notes
         """
-        return self._read_json(self.quick_notes_file)
+        return self.quick_notes_store.list_records(
+            record_type='quick_note',
+            limit=1000
+        )
 
     def get_quick_note(self, note_id: str) -> Optional[Dict]:
         """
@@ -590,11 +603,7 @@ class JobSearchDB:
         Returns:
             Note dict or None
         """
-        notes = self._read_json(self.quick_notes_file)
-        for note in notes:
-            if note['id'] == note_id:
-                return note
-        return None
+        return self.quick_notes_store.get_by_record_id('quick_note', note_id)
 
     def update_quick_note(self, note_id: str, label: str = None, content: str = None, note_type: str = None) -> bool:
         """
@@ -609,22 +618,29 @@ class JobSearchDB:
         Returns:
             True if updated, False if not found
         """
-        notes = self._read_json(self.quick_notes_file)
+        # Get existing note
+        note = self.quick_notes_store.get_by_record_id('quick_note', note_id)
+        if not note:
+            return False
+        
+        # Update fields
+        if label is not None:
+            note['label'] = label
+        if content is not None:
+            note['content'] = content
+        if note_type is not None:
+            note['type'] = note_type
+        note['updated_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        for note in notes:
-            if note['id'] == note_id:
-                if label is not None:
-                    note['label'] = label
-                if content is not None:
-                    note['content'] = content
-                if note_type is not None:
-                    note['type'] = note_type
-                note['updated_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Update in vector store
+        try:
+            from storage.vector_sync import sync_quick_note_to_vector_store
+            sync_quick_note_to_vector_store(note, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not update quick note in vector store: {e}")
+            return False
 
-                self._write_json(self.quick_notes_file, notes)
-                return True
-
-        return False
+        return True
 
     def delete_quick_note(self, note_id: str) -> bool:
         """
@@ -636,16 +652,19 @@ class JobSearchDB:
         Returns:
             True if deleted, False if not found
         """
-        notes = self._read_json(self.quick_notes_file)
-        original_length = len(notes)
-
-        notes = [n for n in notes if n['id'] != note_id]
-
-        if len(notes) < original_length:
-            self._write_json(self.quick_notes_file, notes)
-            return True
-
-        return False
+        # Check if exists
+        existing = self.quick_notes_store.get_by_record_id('quick_note', note_id)
+        if not existing:
+            return False
+        
+        # Delete from vector store
+        try:
+            from storage.vector_sync import delete_from_vector_store
+            success = delete_from_vector_store('quick_note', note_id, self.user_id)
+            return success
+        except Exception as e:
+            print(f"Warning: Could not delete quick note from vector store: {e}")
+            return False
 
     # ==================== COMPANIES ====================
 
@@ -659,16 +678,13 @@ class JobSearchDB:
         Returns:
             Company ID
         """
-        companies = self._read_json(self.companies_file)
-        companies.append(company_data)
-        self._write_json(self.companies_file, companies)
-        
-        # Sync to vector store
+        # Add to vector store (which stores full structured data)
         try:
             from storage.vector_sync import sync_company_to_vector_store
             sync_company_to_vector_store(company_data, self.user_id)
         except Exception as e:
-            print(f"Warning: Could not sync company to vector store: {e}")
+            print(f"Warning: Could not add company to vector store: {e}")
+            raise
         
         return company_data['id']
 
@@ -679,7 +695,10 @@ class JobSearchDB:
         Returns:
             List of company dictionaries
         """
-        return self._read_json(self.companies_file)
+        return self.companies_store.list_records(
+            record_type='company',
+            limit=1000
+        )
 
     def get_company(self, company_id: str) -> Optional[Dict]:
         """
@@ -691,11 +710,7 @@ class JobSearchDB:
         Returns:
             Company dict or None
         """
-        companies = self._read_json(self.companies_file)
-        for company in companies:
-            if company['id'] == company_id:
-                return company
-        return None
+        return self.companies_store.get_by_record_id('company', company_id)
 
     def get_company_by_name(self, name: str) -> Optional[Dict]:
         """
@@ -707,10 +722,16 @@ class JobSearchDB:
         Returns:
             Company dict or None
         """
-        companies = self._read_json(self.companies_file)
+        companies = self.companies_store.list_records(
+            record_type='company',
+            filters={'name': name},
+            limit=100
+        )
+        
+        # Case-insensitive match
         name_lower = name.lower()
         for company in companies:
-            if company['name'].lower() == name_lower:
+            if company.get('name', '').lower() == name_lower:
                 return company
         return None
 
@@ -724,24 +745,22 @@ class JobSearchDB:
         Returns:
             True if updated, False if not found
         """
-        companies = self._read_json(self.companies_file)
-
-        for i, company in enumerate(companies):
-            if company['id'] == company_data['id']:
-                company_data['updated_at'] = datetime.now().isoformat()
-                companies[i] = company_data
-                self._write_json(self.companies_file, companies)
-                
-                # Sync to vector store
-                try:
-                    from storage.vector_sync import sync_company_to_vector_store
-                    sync_company_to_vector_store(company_data, self.user_id)
-                except Exception as e:
-                    print(f"Warning: Could not sync company to vector store: {e}")
-                
-                return True
-
-        return False
+        # Check if exists
+        existing = self.companies_store.get_by_record_id('company', company_data['id'])
+        if not existing:
+            return False
+        
+        company_data['updated_at'] = datetime.now().isoformat()
+        
+        # Update in vector store
+        try:
+            from storage.vector_sync import sync_company_to_vector_store
+            sync_company_to_vector_store(company_data, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not update company in vector store: {e}")
+            return False
+        
+        return True
 
     def delete_company(self, company_id: str) -> bool:
         """
@@ -753,24 +772,19 @@ class JobSearchDB:
         Returns:
             True if deleted, False if not found
         """
-        companies = self._read_json(self.companies_file)
-        original_length = len(companies)
-
-        companies = [c for c in companies if c['id'] != company_id]
-
-        if len(companies) < original_length:
-            self._write_json(self.companies_file, companies)
-            
-            # Delete from vector store
-            try:
-                from storage.vector_sync import delete_from_vector_store
-                delete_from_vector_store('company', company_id, self.user_id)
-            except Exception as e:
-                print(f"Warning: Could not delete company from vector store: {e}")
-            
-            return True
-
-        return False
+        # Check if exists
+        existing = self.companies_store.get_by_record_id('company', company_id)
+        if not existing:
+            return False
+        
+        # Delete from vector store
+        try:
+            from storage.vector_sync import delete_from_vector_store
+            success = delete_from_vector_store('company', company_id, self.user_id)
+            return success
+        except Exception as e:
+            print(f"Warning: Could not delete company from vector store: {e}")
+            return False
 
     def search_companies(self, query: str) -> List[Dict]:
         """
