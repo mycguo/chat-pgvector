@@ -135,11 +135,21 @@ def test_connection() -> bool:
         return False
 
 
+# Cache to track if extension check has been done
+_extension_checked = False
+
 def ensure_pgvector_extension():
     """
     Ensure pgvector extension is installed in the database.
     Raises exception if extension cannot be created.
+    Uses caching to avoid repeated checks.
     """
+    global _extension_checked
+    
+    # Skip if already checked (reduces log noise)
+    if _extension_checked:
+        return
+    
     try:
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -150,8 +160,8 @@ def ensure_pgvector_extension():
                 cursor.execute("CREATE EXTENSION IF NOT EXISTS vector")
                 conn.commit()
                 print("pgvector extension created successfully")
-            else:
-                print("pgvector extension already exists")
+            # Mark as checked (don't print if it already exists to reduce noise)
+            _extension_checked = True
     except Exception as e:
         raise RuntimeError(f"Failed to ensure pgvector extension: {e}")
 

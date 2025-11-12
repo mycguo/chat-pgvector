@@ -90,7 +90,7 @@ class PgVectorStore:
             f"pca_model_{collection_name}_{user_id}.pkl"
         )
         
-        # Ensure pgvector extension exists
+        # Ensure pgvector extension exists (silently, only logs on first check)
         try:
             ensure_pgvector_extension()
         except Exception as e:
