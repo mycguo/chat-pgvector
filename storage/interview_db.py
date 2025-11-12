@@ -1,8 +1,8 @@
 """
 Interview Preparation Database
 
-JSON-based storage for interview questions, technical concepts,
-company research, and practice sessions.
+Uses PostgreSQL + pgvector as the single source of truth.
+Maintains backward compatibility with existing API.
 """
 
 import os
@@ -18,6 +18,7 @@ from models.interview_prep import (
 )
 from storage.user_utils import get_user_data_dir
 from storage.encryption import encrypt_data, decrypt_data, is_encryption_enabled
+from storage.pg_vector_store import PgVectorStore
 
 
 class InterviewDB:
@@ -28,7 +29,7 @@ class InterviewDB:
         Initialize interview database.
 
         Args:
-            data_dir: Directory for storing JSON files (if None, uses user-specific directory)
+            data_dir: Directory for storing JSON files (deprecated, kept for compatibility)
             user_id: Optional user ID (if None, will try to get from Streamlit)
         """
         if data_dir is None:
@@ -37,10 +38,13 @@ class InterviewDB:
         self.data_dir = data_dir
         self.user_id = user_id
         self._encryption_enabled = is_encryption_enabled()
-        self.questions_file = os.path.join(data_dir, "questions.json")
-        self.concepts_file = os.path.join(data_dir, "concepts.json")
+        
+        # Initialize pgvector stores for all collections
+        self.questions_store = PgVectorStore(collection_name="interview_prep", user_id=user_id)
+        # Concepts and practice sessions also use interview_prep collection
+        
+        # Keep JSON files for companies (interview research, not job search companies)
         self.companies_file = os.path.join(data_dir, "companies.json")
-        self.practice_file = os.path.join(data_dir, "practice.json")
 
         # Create directory and initialize files
         self._initialize()
@@ -49,10 +53,8 @@ class InterviewDB:
         """Create data directory and initialize JSON files"""
         os.makedirs(self.data_dir, exist_ok=True)
 
-        for file_path in [self.questions_file, self.concepts_file,
-                          self.companies_file, self.practice_file]:
-            if not os.path.exists(file_path):
-                self._write_json(file_path, [])
+        if not os.path.exists(self.companies_file):
+            self._write_json(self.companies_file, [])
 
     def _read_json(self, file_path: str) -> List[dict]:
         """Read JSON file (with optional decryption)"""
@@ -104,25 +106,21 @@ class InterviewDB:
         Returns:
             Question ID
         """
-        questions = self._read_json(self.questions_file)
-        questions.append(question.to_dict())
-        self._write_json(self.questions_file, questions)
-        
-        # Sync to vector store
+        # Add to vector store (which stores full structured data)
         try:
             from storage.vector_sync import sync_interview_question_to_vector_store
             sync_interview_question_to_vector_store(question, self.user_id)
         except Exception as e:
-            print(f"Warning: Could not sync question to vector store: {e}")
+            print(f"Warning: Could not add question to vector store: {e}")
+            raise
         
         return question.id
 
     def get_question(self, question_id: str) -> Optional[InterviewQuestion]:
         """Get question by ID"""
-        questions = self._read_json(self.questions_file)
-        for q in questions:
-            if q['id'] == question_id:
-                return InterviewQuestion.from_dict(q)
+        q_dict = self.questions_store.get_by_record_id('question', question_id)
+        if q_dict:
+            return InterviewQuestion.from_dict(q_dict)
         return None
 
     def list_questions(
@@ -146,66 +144,70 @@ class InterviewDB:
         Returns:
             List of InterviewQuestion instances
         """
-        questions = self._read_json(self.questions_file)
+        # Build filters
+        filters = {}
+        if type:
+            filters['type'] = type
+        if category:
+            filters['category'] = category
+        if difficulty:
+            filters['difficulty'] = difficulty
+        
+        # Query from pgvector
+        q_dicts = self.questions_store.list_records(
+            record_type='question',
+            filters=filters if filters else None,
+            limit=1000
+        )
+        
         result = []
-
-        for q_data in questions:
-            q = InterviewQuestion.from_dict(q_data)
-
-            # Apply filters
-            if type and q.type != type:
-                continue
-            if category and q.category != category:
-                continue
-            if difficulty and q.difficulty != difficulty:
-                continue
+        for q_dict in q_dicts:
+            q = InterviewQuestion.from_dict(q_dict)
+            
+            # Apply array filters (company, tag) that can't be done in SQL easily
             if company and company not in q.companies:
                 continue
             if tag and tag not in q.tags:
                 continue
-
+            
             result.append(q)
 
         return result
 
     def update_question(self, question: InterviewQuestion):
         """Update question"""
-        questions = self._read_json(self.questions_file)
-
-        for i, q in enumerate(questions):
-            if q['id'] == question.id:
-                question.updated_at = datetime.now().isoformat()
-                questions[i] = question.to_dict()
-                self._write_json(self.questions_file, questions)
-                
-                # Sync to vector store
-                try:
-                    from storage.vector_sync import sync_interview_question_to_vector_store
-                    sync_interview_question_to_vector_store(question, self.user_id)
-                except Exception as e:
-                    print(f"Warning: Could not sync question to vector store: {e}")
-                
-                return True
-
-        return False
+        # Check if exists
+        existing = self.questions_store.get_by_record_id('question', question.id)
+        if not existing:
+            return False
+        
+        question.updated_at = datetime.now().isoformat()
+        
+        # Update in vector store
+        try:
+            from storage.vector_sync import sync_interview_question_to_vector_store
+            sync_interview_question_to_vector_store(question, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not update question in vector store: {e}")
+            return False
+        
+        return True
 
     def delete_question(self, question_id: str) -> bool:
         """Delete question"""
-        questions = self._read_json(self.questions_file)
-        filtered = [q for q in questions if q['id'] != question_id]
-
-        if len(filtered) < len(questions):
-            self._write_json(self.questions_file, filtered)
-            
-            # Delete from vector store
-            try:
-                from storage.vector_sync import delete_from_vector_store
-                delete_from_vector_store('question', question_id, self.user_id)
-            except Exception as e:
-                print(f"Warning: Could not delete question from vector store: {e}")
-            
-            return True
-        return False
+        # Check if exists
+        existing = self.questions_store.get_by_record_id('question', question_id)
+        if not existing:
+            return False
+        
+        # Delete from vector store
+        try:
+            from storage.vector_sync import delete_from_vector_store
+            success = delete_from_vector_store('question', question_id, self.user_id)
+            return success
+        except Exception as e:
+            print(f"Warning: Could not delete question from vector store: {e}")
+            return False
 
     def mark_question_practiced(self, question_id: str):
         """Mark question as practiced"""
@@ -218,17 +220,20 @@ class InterviewDB:
 
     def add_concept(self, concept: TechnicalConcept) -> str:
         """Add technical concept"""
-        concepts = self._read_json(self.concepts_file)
-        concepts.append(concept.to_dict())
-        self._write_json(self.concepts_file, concepts)
+        # Add to vector store
+        try:
+            from storage.vector_sync import sync_concept_to_vector_store
+            sync_concept_to_vector_store(concept, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not add concept to vector store: {e}")
+            raise
         return concept.id
 
     def get_concept(self, concept_id: str) -> Optional[TechnicalConcept]:
         """Get concept by ID"""
-        concepts = self._read_json(self.concepts_file)
-        for c in concepts:
-            if c['id'] == concept_id:
-                return TechnicalConcept.from_dict(c)
+        c_dict = self.questions_store.get_by_record_id('concept', concept_id)
+        if c_dict:
+            return TechnicalConcept.from_dict(c_dict)
         return None
 
     def list_concepts(
@@ -237,43 +242,64 @@ class InterviewDB:
         tag: Optional[str] = None
     ) -> List[TechnicalConcept]:
         """List technical concepts with optional filters"""
-        concepts = self._read_json(self.concepts_file)
+        # Build filters
+        filters = {}
+        if category:
+            filters['category'] = category
+        
+        # Query from pgvector
+        c_dicts = self.questions_store.list_records(
+            record_type='concept',
+            filters=filters if filters else None,
+            limit=1000
+        )
+        
         result = []
-
-        for c_data in concepts:
-            c = TechnicalConcept.from_dict(c_data)
-
-            if category and c.category != category:
-                continue
+        for c_dict in c_dicts:
+            c = TechnicalConcept.from_dict(c_dict)
+            
+            # Apply tag filter (array filter)
             if tag and tag not in c.tags:
                 continue
-
+            
             result.append(c)
 
         return result
 
     def update_concept(self, concept: TechnicalConcept):
         """Update concept"""
-        concepts = self._read_json(self.concepts_file)
-
-        for i, c in enumerate(concepts):
-            if c['id'] == concept.id:
-                concept.updated_at = datetime.now().isoformat()
-                concepts[i] = concept.to_dict()
-                self._write_json(self.concepts_file, concepts)
-                return True
-
-        return False
+        # Check if exists
+        existing = self.questions_store.get_by_record_id('concept', concept.id)
+        if not existing:
+            return False
+        
+        concept.updated_at = datetime.now().isoformat()
+        
+        # Update in vector store
+        try:
+            from storage.vector_sync import sync_concept_to_vector_store
+            sync_concept_to_vector_store(concept, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not update concept in vector store: {e}")
+            return False
+        
+        return True
 
     def delete_concept(self, concept_id: str) -> bool:
         """Delete concept"""
-        concepts = self._read_json(self.concepts_file)
-        filtered = [c for c in concepts if c['id'] != concept_id]
-
-        if len(filtered) < len(concepts):
-            self._write_json(self.concepts_file, filtered)
-            return True
-        return False
+        # Check if exists
+        existing = self.questions_store.get_by_record_id('concept', concept_id)
+        if not existing:
+            return False
+        
+        # Delete from vector store
+        try:
+            from storage.vector_sync import delete_from_vector_store
+            success = delete_from_vector_store('concept', concept_id, self.user_id)
+            return success
+        except Exception as e:
+            print(f"Warning: Could not delete concept from vector store: {e}")
+            return False
 
     # ========== Company Research ==========
 
@@ -338,17 +364,20 @@ class InterviewDB:
 
     def add_practice_session(self, session: PracticeSession) -> str:
         """Add practice session"""
-        sessions = self._read_json(self.practice_file)
-        sessions.append(session.to_dict())
-        self._write_json(self.practice_file, sessions)
+        # Add to vector store
+        try:
+            from storage.vector_sync import sync_practice_session_to_vector_store
+            sync_practice_session_to_vector_store(session, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not add practice session to vector store: {e}")
+            raise
         return session.id
 
     def get_practice_session(self, session_id: str) -> Optional[PracticeSession]:
         """Get practice session by ID"""
-        sessions = self._read_json(self.practice_file)
-        for s in sessions:
-            if s['id'] == session_id:
-                return PracticeSession.from_dict(s)
+        s_dict = self.questions_store.get_by_record_id('practice_session', session_id)
+        if s_dict:
+            return PracticeSession.from_dict(s_dict)
         return None
 
     def list_practice_sessions(
@@ -357,55 +386,64 @@ class InterviewDB:
         limit: Optional[int] = None
     ) -> List[PracticeSession]:
         """List practice sessions"""
-        sessions = self._read_json(self.practice_file)
-        result = []
-
-        for s_data in sessions:
-            s = PracticeSession.from_dict(s_data)
-
-            if session_type and s.session_type != session_type:
-                continue
-
-            result.append(s)
-
-        # Sort by date (most recent first)
-        result.sort(key=lambda x: x.date, reverse=True)
-
-        if limit:
-            result = result[:limit]
-
-        return result
+        # Build filters
+        filters = {}
+        if session_type:
+            filters['session_type'] = session_type
+        
+        # Query from pgvector
+        s_dicts = self.questions_store.list_records(
+            record_type='practice_session',
+            filters=filters if filters else None,
+            sort_by='date',
+            reverse=True,
+            limit=limit or 1000
+        )
+        
+        return [PracticeSession.from_dict(s_dict) for s_dict in s_dicts]
 
     def update_practice_session(self, session: PracticeSession):
         """Update practice session"""
-        sessions = self._read_json(self.practice_file)
-
-        for i, s in enumerate(sessions):
-            if s['id'] == session.id:
-                sessions[i] = session.to_dict()
-                self._write_json(self.practice_file, sessions)
-                return True
-
-        return False
+        # Check if exists
+        existing = self.questions_store.get_by_record_id('practice_session', session.id)
+        if not existing:
+            return False
+        
+        # Update in vector store
+        try:
+            from storage.vector_sync import sync_practice_session_to_vector_store
+            sync_practice_session_to_vector_store(session, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not update practice session in vector store: {e}")
+            return False
+        
+        return True
 
     def delete_practice_session(self, session_id: str) -> bool:
         """Delete practice session"""
-        sessions = self._read_json(self.practice_file)
-        filtered = [s for s in sessions if s['id'] != session_id]
-
-        if len(filtered) < len(sessions):
-            self._write_json(self.practice_file, filtered)
-            return True
-        return False
+        # Check if exists
+        existing = self.questions_store.get_by_record_id('practice_session', session_id)
+        if not existing:
+            return False
+        
+        # Delete from vector store
+        try:
+            from storage.vector_sync import delete_from_vector_store
+            success = delete_from_vector_store('practice_session', session_id, self.user_id)
+            return success
+        except Exception as e:
+            print(f"Warning: Could not delete practice session from vector store: {e}")
+            return False
 
     # ========== Statistics ==========
 
     def get_stats(self) -> Dict:
         """Get interview prep statistics"""
-        questions = self._read_json(self.questions_file)
-        concepts = self._read_json(self.concepts_file)
-        companies = self._read_json(self.companies_file)
-        sessions = self._read_json(self.practice_file)
+        # Get data from pgvector
+        questions = self.list_questions()
+        concepts = self.list_concepts()
+        sessions = self.list_practice_sessions()
+        companies = self._read_json(self.companies_file)  # Company research still uses JSON
 
         # Question stats
         total_questions = len(questions)
@@ -415,15 +453,15 @@ class InterviewDB:
 
         for q in questions:
             # By type
-            q_type = q.get('type', 'unknown')
+            q_type = q.type
             questions_by_type[q_type] = questions_by_type.get(q_type, 0) + 1
 
             # By difficulty
-            difficulty = q.get('difficulty', 'unknown')
+            difficulty = q.difficulty
             questions_by_difficulty[difficulty] = questions_by_difficulty.get(difficulty, 0) + 1
 
             # Practiced
-            if q.get('practice_count', 0) > 0:
+            if q.practice_count > 0:
                 practiced_questions += 1
 
         # Concept stats
@@ -431,12 +469,12 @@ class InterviewDB:
         concepts_by_category = {}
 
         for c in concepts:
-            category = c.get('category', 'unknown')
+            category = c.category
             concepts_by_category[category] = concepts_by_category.get(category, 0) + 1
 
         # Practice stats
         total_sessions = len(sessions)
-        total_practice_time = sum(s.get('duration_minutes', 0) for s in sessions)
+        total_practice_time = sum(s.duration_minutes for s in sessions)
 
         return {
             'total_questions': total_questions,

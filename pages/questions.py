@@ -188,7 +188,7 @@ def main():
         st.metric("Total Questions", stats['total_questions'])
         st.metric("Practiced", f"{stats['practice_percentage']:.0f}%")
 
-        if st.button("🔄 Clear Filters", width="stretch"):
+        if st.button("🔄 Clear Filters", key="clear_filters_sidebar", width="stretch"):
             st.rerun()
 
     # Main content area
@@ -295,10 +295,10 @@ def main():
 
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("➕ Add Question", type="primary", width="stretch"):
+            if st.button("➕ Add Question", key="add_question_empty", type="primary", width="stretch"):
                 st.switch_page("pages/interview_prep.py")
         with col2:
-            if st.button("🔄 Clear Filters", width="stretch"):
+            if st.button("🔄 Clear Filters", key="clear_filters_empty", width="stretch"):
                 st.rerun()
     else:
         # Display questions based on view mode
@@ -334,24 +334,24 @@ def main():
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        if st.button("🏠 Home", width="stretch"):
+        if st.button("🏠 Home", key="nav_home", width="stretch"):
             st.switch_page("app.py")
 
     with col2:
-        if st.button("🎯 Interview Prep", width="stretch"):
+        if st.button("🎯 Interview Prep", key="nav_interview_prep", width="stretch"):
             st.switch_page("pages/interview_prep.py")
 
     with col3:
-        if st.button("📝 Applications", width="stretch"):
+        if st.button("📝 Applications", key="nav_applications", width="stretch"):
             st.switch_page("pages/applications.py")
 
     with col4:
-        if st.button("➕ Add Question", width="stretch", type="primary"):
+        if st.button("➕ Add Question", key="add_question_bottom", width="stretch", type="primary"):
             st.switch_page("pages/interview_prep.py")
 
     # Logout button
     st.divider()
-    st.button("Log out", on_click=logout)
+    st.button("Log out", key="logout_button", on_click=logout)
 
 
 if __name__ == "__main__":

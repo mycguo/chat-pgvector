@@ -1,15 +1,16 @@
-# Query Architecture: How JSON Data and Vector Store Work Together
+# Query Architecture: pgvector as Single Source of Truth
 
 ## 🎯 Overview
 
-The application uses **two separate storage systems** that serve different purposes:
+The application uses **PostgreSQL + pgvector as the single source of truth** for all data:
 
-1. **JSON Files** → Structured data storage (applications, resumes, questions)
-2. **pgvector** → Semantic search over text content
+1. **Structured Data** → Stored in `metadata['data']` JSONB field
+2. **Semantic Search** → Formatted text in `metadata['text']` with vector embeddings
+3. **Both queries** → Use the same pgvector database
 
 ## 🔄 Current Query Flow
 
-### Path 1: Structured Data Queries (Direct JSON Access)
+### Path 1: Structured Data Queries (pgvector JSONB)
 
 **When**: User asks about specific data ("show my applications", "what interviews do I have?")
 
@@ -18,47 +19,62 @@ The application uses **two separate storage systems** that serve different purpo
 User Question → detect_data_query_intent() 
               → answer_data_query() 
               → JobSearchDB / InterviewDB 
-              → Read JSON files directly
-              → Return structured answer
+              → PgVectorStore.list_records()
+              → PostgreSQL JSONB query
+              → Return structured data from metadata['data']
 ```
 
-**Example** (`app.py:435-555`):
+**Example**:
 ```python
 def answer_data_query(question: str, query_type: str):
-    db = JobSearchDB()  # Reads applications.json directly
+    db = JobSearchDB()  # Uses pgvector
     
     if query_type == 'application':
-        applications = db.list_applications()  # Direct JSON read
-        # Format and return answer
+        # Queries pgvector with JSONB filters
+        applications = db.list_applications()  
+        # Returns Application objects from metadata['data']
 ```
 
-**What gets queried**:
-- `applications.json` → Job applications
-- `questions.json` → Interview questions (structured)
-- `contacts.json` → Contacts
-- `companies.json` → Company info
+**What gets queried** (all from pgvector):
+- Applications → `applications` collection
+- Questions → `interview_prep` collection
+- Contacts → `contacts` collection
+- Companies → `companies` collection
+- Resumes → `resumes` collection
 
-**Result**: Structured data returned directly (no vector search needed)
+**Implementation**:
+```python
+# Structured query with filters
+apps = db.applications_store.list_records(
+    record_type='application',
+    filters={'status': 'applied', 'company': 'Google'},
+    sort_by='applied_date',
+    reverse=True,
+    limit=10
+)
+```
 
 ---
 
-### Path 2: Semantic Search Queries (Vector Store)
+### Path 2: Semantic Search Queries (Vector Similarity)
 
 **When**: User asks general questions ("what should I know about leadership?", "tell me about system design")
 
 **Flow**:
 ```
-User Question → similarity_search() 
-              → pgvector cosine similarity
-              → Returns text documents
+User Question → PgVectorStore.similarity_search() 
+              → Generate query embedding
+              → PostgreSQL vector cosine similarity
+              → Returns top-k similar documents
+              → Extract text from metadata['text']
               → Pass to LLM for answer
 ```
 
-**Example** (`app.py:679-715`):
+**Example**:
 ```python
-# Normal question answering - use vector store
-vector_store = MilvusVectorStore()
-docs = vector_store.similarity_search(user_question)  # Semantic search
+# Semantic similarity search
+vector_store = PgVectorStore(collection_name="personal_assistant")
+docs = vector_store.similarity_search(user_question, k=5)
 
 # Combine with web search if needed
 combined_context = docs.copy()

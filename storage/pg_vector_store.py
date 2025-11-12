@@ -582,6 +582,150 @@ class PgVectorStore:
                 "status": "error"
             }
 
+    def get_by_record_id(self, record_type: str, record_id: str) -> Optional[Dict]:
+        """
+        Get a single record by type and ID.
+        
+        Args:
+            record_type: Type of record ('application', 'question', 'resume', 'company')
+            record_id: Record ID
+            
+        Returns:
+            Dictionary with record data, or None if not found
+        """
+        try:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT metadata
+                    FROM vector_documents
+                    WHERE user_id = %s 
+                    AND collection_name = %s
+                    AND metadata->>'record_type' = %s
+                    AND metadata->>'record_id' = %s
+                    LIMIT 1
+                """, (self.user_id, self.collection_name, record_type, record_id))
+                
+                result = cursor.fetchone()
+                if result:
+                    metadata_json = result[0]
+                    if isinstance(metadata_json, str):
+                        metadata = json.loads(metadata_json)
+                    else:
+                        metadata = metadata_json or {}
+                    
+                    # Return the full structured data
+                    return metadata.get('data')
+                return None
+        except Exception as e:
+            print(f"Error getting record by ID: {e}")
+            return None
+
+    def list_records(
+        self,
+        record_type: str,
+        filters: Optional[Dict] = None,
+        sort_by: Optional[str] = None,
+        reverse: bool = True,
+        limit: int = 100
+    ) -> List[Dict]:
+        """
+        List records with filtering and sorting.
+        
+        Args:
+            record_type: Type of record ('application', 'question', 'resume', 'company')
+            filters: Dictionary of field filters (e.g., {'status': 'applied', 'company': 'Google'})
+            sort_by: Field to sort by (e.g., 'applied_date', 'created_at')
+            reverse: Sort in reverse order (default: True - newest first)
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of record dictionaries
+        """
+        try:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Build WHERE clause
+                conditions = [
+                    "user_id = %s",
+                    "collection_name = %s",
+                    "metadata->>'record_type' = %s"
+                ]
+                params = [self.user_id, self.collection_name, record_type]
+                
+                # Add filters
+                if filters:
+                    for key, value in filters.items():
+                        if value is not None:
+                            conditions.append(f"metadata->'data'->>%s = %s")
+                            params.extend([key, str(value)])
+                
+                where_clause = " AND ".join(conditions)
+                
+                # Build ORDER BY clause
+                order_by = "created_at DESC"  # Default
+                if sort_by:
+                    # Map common sort fields
+                    sort_field_map = {
+                        'applied_date': "metadata->'data'->>'applied_date'",
+                        'created_at': "created_at",
+                        'updated_at': "updated_at",
+                        'company': "metadata->'data'->>'company'",
+                        'status': "metadata->'data'->>'status'",
+                    }
+                    sort_field = sort_field_map.get(sort_by, f"metadata->'data'->>'{sort_by}'")
+                    order_by = f"{sort_field} {'DESC' if reverse else 'ASC'}"
+                
+                query = f"""
+                    SELECT metadata
+                    FROM vector_documents
+                    WHERE {where_clause}
+                    ORDER BY {order_by}
+                    LIMIT %s
+                """
+                params.append(limit)
+                
+                cursor.execute(query, params)
+                results = cursor.fetchall()
+                
+                records = []
+                for row in results:
+                    metadata_json = row[0]
+                    if isinstance(metadata_json, str):
+                        metadata = json.loads(metadata_json)
+                    else:
+                        metadata = metadata_json or {}
+                    
+                    # Return the full structured data
+                    record = metadata.get('data')
+                    if record:
+                        records.append(record)
+                
+                return records
+        except Exception as e:
+            print(f"Error listing records: {e}")
+            return []
+
+    def query_structured(
+        self,
+        record_type: str,
+        filters: Dict,
+        limit: int = 100
+    ) -> List[Dict]:
+        """
+        Query structured data using JSONB filters.
+        
+        Args:
+            record_type: Type of record ('application', 'question', 'resume', 'company')
+            filters: Dictionary of field filters
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of record dictionaries
+        """
+        return self.list_records(record_type, filters=filters, limit=limit)
+
     @classmethod
     def from_texts(
         cls,
