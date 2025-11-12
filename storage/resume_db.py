@@ -38,20 +38,12 @@ class ResumeDB:
         # Initialize pgvector store for resumes
         self.resumes_store = PgVectorStore(collection_name="resumes", user_id=user_id)
         
-        # Keep JSON file for versions (not yet migrated)
-        self.versions_file = os.path.join(data_dir, "versions.json")
+        # Resume files directory (PDF files are still stored on disk)
         self.files_dir = os.path.join(data_dir, "files")
 
-        # Create directory and initialize files
-        self._initialize()
-
-    def _initialize(self):
-        """Create data directory and initialize JSON files"""
+        # Create directory for resume files
         os.makedirs(self.data_dir, exist_ok=True)
         os.makedirs(self.files_dir, exist_ok=True)
-
-        if not os.path.exists(self.versions_file):
-            self._write_json(self.versions_file, [])
 
     def _read_json(self, file_path: str) -> List[dict]:
         """Read JSON file (with optional decryption)"""

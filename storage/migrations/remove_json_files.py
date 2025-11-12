@@ -112,11 +112,16 @@ if __name__ == "__main__":
     
     dry_run = args.dry_run and not args.force
     
-    if not dry_run:
-        response = input("⚠️  This will permanently delete JSON files. Are you sure? (yes/no): ")
-        if response.lower() != "yes":
-            print("Cancelled.")
-            sys.exit(0)
+    if not dry_run and not args.force:
+        try:
+            response = input("⚠️  This will permanently delete JSON files. Are you sure? (yes/no): ")
+            if response.lower() != "yes":
+                print("Cancelled.")
+                sys.exit(0)
+        except EOFError:
+            # Non-interactive mode, require --force flag
+            print("⚠️  Non-interactive mode detected. Use --force flag to proceed.")
+            sys.exit(1)
     
     remove_json_files(user_id=args.user_id, dry_run=dry_run)
 
