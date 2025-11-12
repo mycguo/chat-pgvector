@@ -341,31 +341,33 @@ class JobSearchDB:
         Returns:
             True if successful
         """
-        applications = self._read_json(self.applications_file)
+        # Get application from pgvector
+        app_dict = self.applications_store.get_by_record_id('application', app_id)
+        if not app_dict:
+            print(f"❌ Application not found: {app_id}")
+            return False
+        
+        app = Application.from_dict(app_dict)
+        
+        # Add the event using the Application's add_event method
+        from models.application import ApplicationEvent
+        event = ApplicationEvent(
+            date=event_date,
+            event_type=event_type,
+            notes=notes
+        )
+        app.timeline.append(event)
+        app.updated_at = datetime.now().isoformat()
 
-        for i, app_dict in enumerate(applications):
-            if app_dict['id'] == app_id:
-                app = Application.from_dict(app_dict)
-                
-                # Add the event using the Application's add_event method
-                # But we need to create the event with the specified date
-                from models.application import ApplicationEvent
-                event = ApplicationEvent(
-                    date=event_date,
-                    event_type=event_type,
-                    notes=notes
-                )
-                app.timeline.append(event)
-                app.updated_at = datetime.now().isoformat()
-
-                applications[i] = app.to_dict()
-                self._write_json(self.applications_file, applications)
-
-                print(f"✅ Added timeline event: {event_type} on {event_date}")
-                return True
-
-        print(f"❌ Application not found: {app_id}")
-        return False
+        # Update in pgvector
+        try:
+            from storage.vector_sync import sync_application_to_vector_store
+            sync_application_to_vector_store(app, self.user_id)
+            print(f"✅ Added timeline event: {event_type} on {event_date}")
+            return True
+        except Exception as e:
+            print(f"❌ Error updating application: {e}")
+            return False
 
     def update_timeline_event(self, app_id: str, event_index: int, event_type: str = None, event_date: str = None, notes: str = None) -> bool:
         """
@@ -381,36 +383,39 @@ class JobSearchDB:
         Returns:
             True if successful
         """
-        applications = self._read_json(self.applications_file)
+        # Get application from pgvector
+        app_dict = self.applications_store.get_by_record_id('application', app_id)
+        if not app_dict:
+            print(f"❌ Application not found: {app_id}")
+            return False
+        
+        app = Application.from_dict(app_dict)
+        
+        # Check if event_index is valid
+        if event_index < 0 or event_index >= len(app.timeline):
+            print(f"❌ Invalid event index: {event_index}")
+            return False
+        
+        # Update the event
+        event = app.timeline[event_index]
+        if event_type is not None:
+            event.event_type = event_type
+        if event_date is not None:
+            event.date = event_date
+        if notes is not None:
+            event.notes = notes
+        
+        app.updated_at = datetime.now().isoformat()
 
-        for i, app_dict in enumerate(applications):
-            if app_dict['id'] == app_id:
-                app = Application.from_dict(app_dict)
-                
-                # Check if event_index is valid
-                if event_index < 0 or event_index >= len(app.timeline):
-                    print(f"❌ Invalid event index: {event_index}")
-                    return False
-                
-                # Update the event
-                event = app.timeline[event_index]
-                if event_type is not None:
-                    event.event_type = event_type
-                if event_date is not None:
-                    event.date = event_date
-                if notes is not None:
-                    event.notes = notes
-                
-                app.updated_at = datetime.now().isoformat()
-
-                applications[i] = app.to_dict()
-                self._write_json(self.applications_file, applications)
-
-                print(f"✅ Updated timeline event at index {event_index}")
-                return True
-
-        print(f"❌ Application not found: {app_id}")
-        return False
+        # Update in pgvector
+        try:
+            from storage.vector_sync import sync_application_to_vector_store
+            sync_application_to_vector_store(app, self.user_id)
+            print(f"✅ Updated timeline event at index {event_index}")
+            return True
+        except Exception as e:
+            print(f"❌ Error updating application: {e}")
+            return False
 
     def delete_timeline_event(self, app_id: str, event_index: int) -> bool:
         """
@@ -423,34 +428,37 @@ class JobSearchDB:
         Returns:
             True if successful
         """
-        applications = self._read_json(self.applications_file)
+        # Get application from pgvector
+        app_dict = self.applications_store.get_by_record_id('application', app_id)
+        if not app_dict:
+            print(f"❌ Application not found: {app_id}")
+            return False
+        
+        app = Application.from_dict(app_dict)
+        
+        # Check if event_index is valid
+        if event_index < 0 or event_index >= len(app.timeline):
+            print(f"❌ Invalid event index: {event_index}")
+            return False
+        
+        # Don't allow deleting the first event (initial application)
+        if event_index == 0:
+            print(f"❌ Cannot delete the initial application event")
+            return False
+        
+        # Delete the event
+        del app.timeline[event_index]
+        app.updated_at = datetime.now().isoformat()
 
-        for i, app_dict in enumerate(applications):
-            if app_dict['id'] == app_id:
-                app = Application.from_dict(app_dict)
-                
-                # Check if event_index is valid
-                if event_index < 0 or event_index >= len(app.timeline):
-                    print(f"❌ Invalid event index: {event_index}")
-                    return False
-                
-                # Don't allow deleting the first event (initial application)
-                if event_index == 0:
-                    print(f"❌ Cannot delete the initial application event")
-                    return False
-                
-                # Delete the event
-                del app.timeline[event_index]
-                app.updated_at = datetime.now().isoformat()
-
-                applications[i] = app.to_dict()
-                self._write_json(self.applications_file, applications)
-
-                print(f"✅ Deleted timeline event at index {event_index}")
-                return True
-
-        print(f"❌ Application not found: {app_id}")
-        return False
+        # Update in pgvector
+        try:
+            from storage.vector_sync import sync_application_to_vector_store
+            sync_application_to_vector_store(app, self.user_id)
+            print(f"✅ Deleted timeline event at index {event_index}")
+            return True
+        except Exception as e:
+            print(f"❌ Error updating application: {e}")
+            return False
 
     # ==================== STATISTICS ====================
 
@@ -796,15 +804,35 @@ class JobSearchDB:
         Returns:
             List of matching companies
         """
-        companies = self._read_json(self.companies_file)
-        query_lower = query.lower()
-
-        results = []
-        for company in companies:
-            if (query_lower in company['name'].lower() or
-                query_lower in company.get('industry', '').lower() or
-                query_lower in company.get('notes', '').lower() or
-                query_lower in company.get('description', '').lower()):
-                results.append(company)
-
-        return results
+        # Use semantic search in pgvector
+        try:
+            # First try semantic search
+            docs = self.companies_store.similarity_search(query, k=20)
+            results = []
+            seen_ids = set()
+            
+            for doc in docs:
+                metadata = doc.metadata
+                if 'data' in metadata and 'record_id' in metadata:
+                    record_id = metadata['record_id']
+                    if record_id not in seen_ids:
+                        results.append(metadata['data'])
+                        seen_ids.add(record_id)
+            
+            # Also do text-based filtering for exact matches
+            query_lower = query.lower()
+            all_companies = self.companies_store.list_records('company')
+            for company in all_companies:
+                if company.get('id') not in seen_ids:
+                    if (query_lower in company.get('name', '').lower() or
+                        query_lower in company.get('industry', '').lower() or
+                        query_lower in company.get('notes', '').lower() or
+                        query_lower in company.get('description', '').lower()):
+                        results.append(company)
+                        seen_ids.add(company.get('id'))
+            
+            return results
+        except Exception as e:
+            print(f"Error searching companies: {e}")
+            # Fallback to list all companies
+            return self.companies_store.list_records('company')
