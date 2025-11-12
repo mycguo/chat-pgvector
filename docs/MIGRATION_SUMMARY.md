@@ -105,49 +105,57 @@ Your Application Data:
 
 ## ⚠️ Important Notes
 
-1. **Don't Remove JSON Files**: The JSON files in `job_search_data/`, `resume_data/`, and `interview_data/` are **actively used** by your application. Removing them would delete your data.
+1. **JSON Files Removed**: All migrated JSON files have been removed. Data is now stored in PostgreSQL + pgvector.
 
-2. **Vector Store Migration**: Only vector store files (`vector_store_*/`) were removed. These contained embeddings, not your actual application data.
+2. **Single Source of Truth**: PostgreSQL + pgvector is now the single source of truth for all structured data.
 
-3. **Backups**: Migration backups are in `migration_backup/` - keep these for rollback if needed.
+3. **Only Profile & Interview Companies Remain**: Only `profile.json` and `interview_data/companies.json` remain as JSON files (intentionally not migrated).
 
-## 📁 File Structure After Migration
+## 📁 File Structure After Complete Migration
 
 ```
 user_data/
 └── {user_id}/
-    ├── job_search_data/          ✅ KEEP (Active)
-    │   ├── applications.json
-    │   ├── contacts.json
-    │   ├── profile.json
-    │   ├── quick_notes.json
-    │   └── companies.json
+    ├── job_search_data/          
+    │   └── profile.json          ✅ KEEP (Not migrated)
     │
-    ├── resume_data/              ✅ KEEP (Active)
-    │   ├── resumes.json
-    │   ├── versions.json
-    │   └── files/
+    ├── resume_data/              
+    │   └── files/                ✅ KEEP (PDF files on disk)
     │
-    ├── interview_data/           ✅ KEEP (Active)
-    │   ├── questions.json
-    │   ├── concepts.json
-    │   ├── companies.json
-    │   └── practice.json
+    ├── interview_data/           
+    │   └── companies.json        ✅ KEEP (Interview research, not migrated)
     │
-    └── vector_store_*/           ❌ REMOVED (Migrated to PostgreSQL)
-        ├── vectors.pkl          ❌ REMOVED
-        └── metadata.json        ❌ REMOVED
+    └── PostgreSQL Database       ✅ ALL DATA HERE
+        └── vector_documents table
+            ├── applications
+            ├── companies
+            ├── contacts
+            ├── quick_notes
+            ├── questions
+            ├── concepts
+            ├── practice_sessions
+            ├── resumes
+            ├── resume_versions
+            └── uploaded_documents
 ```
 
 ## 🎯 Summary
 
 | Component | Status | Storage | Action |
 |-----------|--------|---------|--------|
-| Vector Storage | ✅ Migrated | PostgreSQL | Old files removed |
-| Job Applications | ✅ Active | JSON files | **Keep** |
-| Resumes | ✅ Active | JSON + Files | **Keep** |
-| Interview Prep | ✅ Active | JSON files | **Keep** |
-| Quick Notes | ✅ Active | JSON files | **Keep** |
+| Vector Storage | ✅ Migrated | PostgreSQL | Complete |
+| Job Applications | ✅ Migrated | pgvector | JSON removed |
+| Companies | ✅ Migrated | pgvector | JSON removed |
+| Contacts | ✅ Migrated | pgvector | JSON removed |
+| Quick Notes | ✅ Migrated | pgvector | JSON removed |
+| Interview Questions | ✅ Migrated | pgvector | JSON removed |
+| Concepts | ✅ Migrated | pgvector | JSON removed |
+| Practice Sessions | ✅ Migrated | pgvector | JSON removed |
+| Resumes | ✅ Migrated | pgvector | JSON removed |
+| Resume Versions | ✅ Migrated | pgvector | JSON removed |
+| Profile | ⏳ Not Migrated | JSON | Keep as-is |
+| Interview Companies | ⏳ Not Migrated | JSON | Keep as-is |
+| PDF Files | ⏳ Not Migrated | Disk | Keep as-is |
 
 ## ✅ Verification
 
