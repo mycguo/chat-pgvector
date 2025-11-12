@@ -171,7 +171,7 @@ def _load_vector_store(collection_name="personal_assistant"):
 
 
 def _safe_save_vector_store(vector_store, collection_name="personal_assistant"):
-    """Milvus automatically persists data, no manual save needed."""
+    """PostgreSQL automatically persists data, no manual save needed."""
     pass
 
 
@@ -192,9 +192,8 @@ def generate_word_cloud(text):
     return plt
 
 def upload_vector_store_to_s3():
-    # Milvus data is managed by the Milvus server
-    # For cloud deployment, use Milvus Cloud or Zilliz Cloud
-    print("Milvus data is persisted automatically. For cloud deployment, configure Milvus Cloud.")
+    # Legacy function - vector data is now stored in PostgreSQL
+    print("Vector data is now stored in PostgreSQL. S3 backup is no longer needed.")
 
 def upload_file_to_s3(local_file_path, bucket_name, s3_key):
     """

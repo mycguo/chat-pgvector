@@ -3,9 +3,6 @@ google-generativeai
 python-dotenv
 langchain
 PyPDF2
-pymilvus>=2.4.0
-langchain-milvus
-milvus-lite
 langchain_google_genai
 langchain-community
 python-docx
@@ -16,8 +13,6 @@ numpy
 pydub
 python-multipart
 DateTime
-numpy
-pandas
 regex
 yake
 wordcloud
