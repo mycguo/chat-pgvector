@@ -89,7 +89,7 @@ def extract_text_from_file(file_bytes, filename):
 def add_question_to_vector_store(question, answer, metadata):
     """Add question and answer to vector store for semantic search"""
     try:
-        vector_store = SimpleVectorStore()
+        vector_store = PgVectorStore()
 
         # Create searchable content
         content = f"""Interview Question: {question}
@@ -121,7 +121,7 @@ Tags: {', '.join(metadata.get('tags', []))}"""
 def add_document_to_vector_store(file_content, filename, metadata):
     """Add entire document to vector store for semantic search"""
     try:
-        vector_store = SimpleVectorStore()
+        vector_store = PgVectorStore()
 
         # Add document metadata
         content = f"""Interview Prep Document: {filename}

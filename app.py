@@ -740,9 +740,8 @@ def download_s3_bucket(bucket_name, download_dir):
             s3.download_file(bucket_name, key, local_file_path)
 
 def download_faiss_from_s3():
-    # Milvus data is managed by the Milvus server
-    # Migration from S3-stored FAISS can be done with MilvusVectorStore.migrate_from_faiss()
-    print("Milvus uses its own persistence. Migration from FAISS can be done if needed.")
+    # Legacy function - no longer needed with PostgreSQL backend
+    print("Vector data is now stored in PostgreSQL. Migration from FAISS/S3 is no longer supported.")
 
 from storage.auth_utils import is_user_logged_in, login, logout
 
