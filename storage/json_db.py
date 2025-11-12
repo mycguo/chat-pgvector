@@ -76,7 +76,9 @@ class JobSearchDB:
                 with open(filepath, 'r') as f:
                     return json.load(f)
             except:
-                print(f"Error reading {filepath}: {e}")
+                # Don't print the error again if it's the same decryption error
+                if "decrypt" not in str(e).lower() and "fernet" not in str(e).lower():
+                    print(f"Error reading {filepath}: {e}")
                 return [] if filepath != self.profile_file else {}
 
     def _write_json(self, filepath: str, data):
@@ -120,6 +122,13 @@ class JobSearchDB:
 
         applications.append(app.to_dict())
         self._write_json(self.applications_file, applications)
+
+        # Sync to vector store
+        try:
+            from storage.vector_sync import sync_application_to_vector_store
+            sync_application_to_vector_store(app, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not sync application to vector store: {e}")
 
         print(f"✅ Added application: {app.company} - {app.role} (ID: {app.id})")
         return app.id
@@ -213,6 +222,13 @@ class JobSearchDB:
                 applications[i] = app.to_dict()
                 self._write_json(self.applications_file, applications)
 
+                # Sync to vector store
+                try:
+                    from storage.vector_sync import sync_application_to_vector_store
+                    sync_application_to_vector_store(app, self.user_id)
+                except Exception as e:
+                    print(f"Warning: Could not sync application to vector store: {e}")
+
                 print(f"✅ Updated application: {app.company} - {app.role}")
                 return True
 
@@ -265,6 +281,14 @@ class JobSearchDB:
 
         if len(applications) < original_length:
             self._write_json(self.applications_file, applications)
+            
+            # Delete from vector store
+            try:
+                from storage.vector_sync import delete_from_vector_store
+                delete_from_vector_store('application', app_id, self.user_id)
+            except Exception as e:
+                print(f"Warning: Could not delete application from vector store: {e}")
+            
             print(f"✅ Deleted application: {app_id}")
             return True
 
@@ -638,6 +662,14 @@ class JobSearchDB:
         companies = self._read_json(self.companies_file)
         companies.append(company_data)
         self._write_json(self.companies_file, companies)
+        
+        # Sync to vector store
+        try:
+            from storage.vector_sync import sync_company_to_vector_store
+            sync_company_to_vector_store(company_data, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not sync company to vector store: {e}")
+        
         return company_data['id']
 
     def get_companies(self) -> List[Dict]:
@@ -699,6 +731,14 @@ class JobSearchDB:
                 company_data['updated_at'] = datetime.now().isoformat()
                 companies[i] = company_data
                 self._write_json(self.companies_file, companies)
+                
+                # Sync to vector store
+                try:
+                    from storage.vector_sync import sync_company_to_vector_store
+                    sync_company_to_vector_store(company_data, self.user_id)
+                except Exception as e:
+                    print(f"Warning: Could not sync company to vector store: {e}")
+                
                 return True
 
         return False
@@ -720,6 +760,14 @@ class JobSearchDB:
 
         if len(companies) < original_length:
             self._write_json(self.companies_file, companies)
+            
+            # Delete from vector store
+            try:
+                from storage.vector_sync import delete_from_vector_store
+                delete_from_vector_store('company', company_id, self.user_id)
+            except Exception as e:
+                print(f"Warning: Could not delete company from vector store: {e}")
+            
             return True
 
         return False

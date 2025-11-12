@@ -108,6 +108,14 @@ class ResumeDB:
 
         resumes.append(resume.to_dict())
         self._write_json(self.resumes_file, resumes)
+        
+        # Sync to vector store
+        try:
+            from storage.vector_sync import sync_resume_to_vector_store
+            sync_resume_to_vector_store(resume, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not sync resume to vector store: {e}")
+        
         return resume.id
 
     def get_resume(self, resume_id: str) -> Optional[Resume]:
@@ -162,6 +170,14 @@ class ResumeDB:
                 resume.updated_at = datetime.now().isoformat()
                 resumes[i] = resume.to_dict()
                 self._write_json(self.resumes_file, resumes)
+                
+                # Sync to vector store
+                try:
+                    from storage.vector_sync import sync_resume_to_vector_store
+                    sync_resume_to_vector_store(resume, self.user_id)
+                except Exception as e:
+                    print(f"Warning: Could not sync resume to vector store: {e}")
+                
                 return True
 
         return False
@@ -184,6 +200,14 @@ class ResumeDB:
 
         if len(filtered) < len(resumes):
             self._write_json(self.resumes_file, filtered)
+            
+            # Delete from vector store
+            try:
+                from storage.vector_sync import delete_from_vector_store
+                delete_from_vector_store('resume', resume_id, self.user_id)
+            except Exception as e:
+                print(f"Warning: Could not delete resume from vector store: {e}")
+            
             return True
         return False
 

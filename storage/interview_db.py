@@ -107,6 +107,14 @@ class InterviewDB:
         questions = self._read_json(self.questions_file)
         questions.append(question.to_dict())
         self._write_json(self.questions_file, questions)
+        
+        # Sync to vector store
+        try:
+            from storage.vector_sync import sync_interview_question_to_vector_store
+            sync_interview_question_to_vector_store(question, self.user_id)
+        except Exception as e:
+            print(f"Warning: Could not sync question to vector store: {e}")
+        
         return question.id
 
     def get_question(self, question_id: str) -> Optional[InterviewQuestion]:
@@ -169,6 +177,14 @@ class InterviewDB:
                 question.updated_at = datetime.now().isoformat()
                 questions[i] = question.to_dict()
                 self._write_json(self.questions_file, questions)
+                
+                # Sync to vector store
+                try:
+                    from storage.vector_sync import sync_interview_question_to_vector_store
+                    sync_interview_question_to_vector_store(question, self.user_id)
+                except Exception as e:
+                    print(f"Warning: Could not sync question to vector store: {e}")
+                
                 return True
 
         return False
@@ -180,6 +196,14 @@ class InterviewDB:
 
         if len(filtered) < len(questions):
             self._write_json(self.questions_file, filtered)
+            
+            # Delete from vector store
+            try:
+                from storage.vector_sync import delete_from_vector_store
+                delete_from_vector_store('question', question_id, self.user_id)
+            except Exception as e:
+                print(f"Warning: Could not delete question from vector store: {e}")
+            
             return True
         return False
 

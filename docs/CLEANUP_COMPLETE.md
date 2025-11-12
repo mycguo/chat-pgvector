@@ -17,10 +17,12 @@ All unnecessary files from the old file-based vector store implementation have b
 - ✅ Duplicate `numpy` entry - Removed
 - ✅ Duplicate `pandas` entry - Removed
 
-### 3. Data Files
+### 3. Data Files (Vector Store Only)
 - ✅ Old vector store directories: `user_data/*/vector_store_*/`
 - ✅ Old `vectors.pkl` files
-- ✅ Old `metadata.json` files (from vector stores)
+- ✅ Old `metadata.json` files (from vector stores only)
+
+**Note**: Application JSON files (applications.json, resumes.json, etc.) were **NOT** removed - they are still actively used by the application.
 
 ## Files Kept (For Safety)
 
@@ -29,10 +31,12 @@ All unnecessary files from the old file-based vector store implementation have b
 - Contains timestamped backups of all migrated data
 - Can be removed after full verification (recommended: keep for 1-2 weeks)
 
-### User Data (Other)
-- ✅ `user_data/*/job_search_data/` - Kept (application data)
-- ✅ `user_data/*/resume_data/` - Kept (resume data)
-- ✅ `user_data/*/interview_data/` - Kept (interview prep data)
+### User Data (Application Data - Still Active)
+- ✅ `user_data/*/job_search_data/` - **Active** (applications, contacts, profile, quick notes, companies)
+- ✅ `user_data/*/resume_data/` - **Active** (resumes, versions, PDF files)
+- ✅ `user_data/*/interview_data/` - **Active** (questions, concepts, companies, practice)
+
+**Important**: These JSON files are **actively used** by the application. They store your job applications, resumes, and interview prep data. Do NOT remove them.
 
 ## Verification
 
