@@ -201,6 +201,7 @@ All database operations automatically sync to pgvector:
 
 ## 📚 Related Documentation
 
+- `docs/DATABASE_SCHEMA.md` - Complete database schema documentation
 - `docs/PGVECTOR_SETUP.md` - PostgreSQL + pgvector setup guide
 - `docs/PGVECTOR_ONLY_ARCHITECTURE.md` - Architecture design decisions
 - `docs/COMPLETE_JSON_TO_PGVECTOR_MIGRATION.md` - Migration details

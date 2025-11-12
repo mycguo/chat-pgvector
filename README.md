@@ -9,7 +9,10 @@ A comprehensive job search management application with:
 
 ## 🏗️ Architecture
 
-**PostgreSQL + pgvector** is used as the single source of truth for all structured data and semantic search. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for complete architecture details.
+**PostgreSQL + pgvector** is used as the single source of truth for all structured data and semantic search. 
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Complete architecture overview
+- [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) - Detailed database schema documentation
 
 ## 🚀 Quick Start
 
