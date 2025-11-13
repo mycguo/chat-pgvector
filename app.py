@@ -4,6 +4,11 @@ import os
 import re
 import sys
 from datetime import datetime
+
+# Set USER_AGENT early to prevent warnings from libraries that check for it
+if "USER_AGENT" not in os.environ:
+    os.environ["USER_AGENT"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+
 import google.generativeai as genai
 from storage.pg_vector_store import PgVectorStore as MilvusVectorStore
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -19,7 +24,6 @@ from components.quick_notes import render_quick_notes
 
 
 genai.configure(api_key=os.getenv("GENAI_API_KEY"))
-os.environ["USER_AGENT"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 
 def get_prompt_template():
     return PromptTemplate()

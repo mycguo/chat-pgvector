@@ -4,10 +4,11 @@
 
 ## Overview
 
-The application uses **PostgreSQL with pgvector extension** as the single source of truth for all structured data. The database uses a single-table design where all document types are stored in the `vector_documents` table with JSONB metadata for flexible querying.
+The application uses **Neon.tech (serverless PostgreSQL) with pgvector extension** as the single source of truth for all structured data. The database uses a single-table design where all document types are stored in the `vector_documents` table with JSONB metadata for flexible querying.
 
+**Database Provider**: Neon.tech (serverless PostgreSQL)  
 **Database Name**: `chat_pgvector`  
-**PostgreSQL Extension**: `pgvector` (for vector similarity search)
+**PostgreSQL Extension**: `pgvector` (for vector similarity search, included in Neon)
 
 ---
 
@@ -735,7 +736,7 @@ Adds specialized JSONB path indexes for common query patterns.
 - `docs/ARCHITECTURE.md` - Overall architecture overview
 - `docs/QUERY_ARCHITECTURE.md` - Query patterns and examples
 - `docs/CURRENT_STATE.md` - Current implementation state
-- `docs/PGVECTOR_SETUP.md` - PostgreSQL + pgvector setup guide
+- `docs/PGVECTOR_SETUP.md` - Neon.tech (PostgreSQL + pgvector) setup guide
 
 ---
 

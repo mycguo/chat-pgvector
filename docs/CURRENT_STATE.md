@@ -1,14 +1,14 @@
 # Current Implementation State
 
-**Last Updated**: After complete migration to pgvector-only architecture
+**Last Updated**: After migration to Neon.tech (serverless PostgreSQL)
 
 ## ✅ Migration Complete
 
-All structured data has been migrated from JSON files to PostgreSQL + pgvector. The application now uses **pgvector as the single source of truth** for all data.
+All structured data has been migrated from JSON files to Neon.tech (serverless PostgreSQL) + pgvector. The application now uses **Neon.tech as the single source of truth** for all data.
 
 ## 📊 Data Storage Summary
 
-### PostgreSQL + pgvector (Primary)
+### Neon.tech (Serverless PostgreSQL) + pgvector (Primary)
 
 **All data stored in `vector_documents` table:**
 
@@ -136,11 +136,11 @@ docs = vector_store.similarity_search("software engineer at Google", k=5)
 
 ## 🚀 Setup Requirements
 
-1. **PostgreSQL** with pgvector extension
+1. **Neon.tech account** (free tier available) - [Sign up](https://neon.tech/)
 2. **Environment Variables**:
-   - `DATABASE_URL` or PostgreSQL connection details
+   - `DATABASE_URL` - Neon.tech connection string (includes SSL)
    - `GOOGLE_API_KEY` for embeddings
-3. **Run Migrations**:
+3. **Run Migrations** (using Neon connection string):
    - `001_create_vector_tables.sql` - Create tables
    - `002_add_jsonb_indexes.sql` - Add indexes
 

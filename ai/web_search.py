@@ -3,7 +3,14 @@ Web search functionality using DuckDuckGo.
 Provides internet search capabilities for the AI assistant.
 """
 
+import os
 from typing import List, Dict, Optional
+
+# Set USER_AGENT environment variable if not already set
+# This prevents warnings from duckduckgo_search library
+if "USER_AGENT" not in os.environ:
+    os.environ["USER_AGENT"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+
 from duckduckgo_search import DDGS
 
 

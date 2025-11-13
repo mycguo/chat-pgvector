@@ -1,15 +1,17 @@
-# PostgreSQL + pgvector Setup Guide
+# Neon.tech (PostgreSQL + pgvector) Setup Guide
 
 ## Quick Start
 
+**This application uses Neon.tech (serverless PostgreSQL) as the primary database.**
+
 You have three options:
-- **Neon.tech** (serverless, recommended for production) - See [NEON_MIGRATION_PLAN.md](NEON_MIGRATION_PLAN.md)
-- **Docker** (quick local setup)
-- **Local PostgreSQL** (no Docker needed)
+- **Neon.tech** (serverless, **recommended and primary**) - See [NEON_MIGRATION_PLAN.md](NEON_MIGRATION_PLAN.md)
+- **Docker** (quick local setup for development)
+- **Local PostgreSQL** (for local development only)
 
-### Option A: Neon.tech (Serverless PostgreSQL)
+### Option A: Neon.tech (Serverless PostgreSQL) ⭐ **PRIMARY**
 
-**Recommended for production deployments.**
+**This is the recommended and primary database for this application.**
 
 Neon.tech provides a fully managed PostgreSQL service with pgvector support, auto-scaling, and a generous free tier.
 
@@ -28,7 +30,9 @@ postgresql://username:password@ep-xxx.us-east-2.aws.neon.tech:5432/chat_pgvector
 
 ---
 
-### Option B: Docker Setup (Quick & Easy)
+### Option B: Docker Setup (Local Development Only)
+
+**Note**: This is for local development. Production uses Neon.tech.
 
 If you have Docker installed, use the automated script:
 ```bash
@@ -45,9 +49,11 @@ docker run -d \
   pgvector/pgvector:pg16
 ```
 
-### Option C: Local PostgreSQL (No Docker Required)
+### Option C: Local PostgreSQL (Local Development Only)
 
-**Recommended if you already have PostgreSQL or prefer local installation.**
+**Note**: This is for local development. Production uses Neon.tech.
+
+**Only use this if you already have PostgreSQL installed locally.**
 
 #### Step 1: Install PostgreSQL and pgvector
 

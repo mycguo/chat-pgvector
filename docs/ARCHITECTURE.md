@@ -2,16 +2,16 @@
 
 ## 🎯 Current Implementation
 
-This application uses **PostgreSQL + pgvector as the single source of truth** for all structured data and semantic search. The architecture has been fully migrated from file-based storage to a database-backed system.
+This application uses **Neon.tech (serverless PostgreSQL) + pgvector as the single source of truth** for all structured data and semantic search. The architecture has been fully migrated from file-based storage to a managed, serverless database-backed system.
 
 ## 📊 Data Storage Architecture
 
-### PostgreSQL + pgvector (Primary Storage)
+### Neon.tech (Serverless PostgreSQL) + pgvector (Primary Storage)
 
-**All application data is stored in PostgreSQL with pgvector extension:**
+**All application data is stored in Neon.tech (serverless PostgreSQL) with pgvector extension:**
 
 ```
-PostgreSQL Database (chat_pgvector)
+Neon.tech Serverless PostgreSQL Database (chat_pgvector)
 └── vector_documents table
     ├── Applications (collection: "applications")
     ├── Companies (collection: "companies")
@@ -64,7 +64,7 @@ User Action → Database Class (JobSearchDB/InterviewDB/ResumeDB)
            → Store full structured data in metadata['data']
            → Generate embeddings (Google Gemini)
            → Reduce dimensions (PCA: 3072 → 2000)
-           → Insert into PostgreSQL
+           → Insert into Neon.tech PostgreSQL
 ```
 
 ### Querying Data
@@ -73,7 +73,7 @@ User Action → Database Class (JobSearchDB/InterviewDB/ResumeDB)
 ```
 User Query → Database Class method
           → PgVectorStore.list_records()
-          → PostgreSQL JSONB query
+          → Neon.tech PostgreSQL JSONB query
           → Filter by record_type, filters
           → Return structured data from metadata['data']
 ```
@@ -83,7 +83,7 @@ User Query → Database Class method
 User Query → PgVectorStore.similarity_search()
           → Generate query embedding
           → Reduce dimensions (PCA)
-          → PostgreSQL vector cosine similarity search
+          → Neon.tech PostgreSQL vector cosine similarity search
           → Return top-k similar documents
 ```
 
@@ -162,7 +162,7 @@ All database operations automatically sync to pgvector:
 
 - **Encryption**: Optional file-level encryption for JSON files (if enabled)
 - **User Isolation**: Database-level isolation via `user_id`
-- **Connection Security**: PostgreSQL connection string from environment variables
+- **Connection Security**: Neon.tech PostgreSQL connection string (SSL required) from environment variables
 
 ## 🚀 Performance Optimizations
 
@@ -174,8 +174,8 @@ All database operations automatically sync to pgvector:
 
 ## 📦 Dependencies
 
-- **PostgreSQL**: Database server
-- **pgvector**: Vector similarity extension
+- **Neon.tech**: Serverless PostgreSQL database (managed service)
+- **pgvector**: Vector similarity extension (included in Neon)
 - **psycopg2**: PostgreSQL adapter
 - **langchain-google-genai**: Embeddings (Google Gemini)
 - **numpy/scikit-learn**: PCA for dimensionality reduction
@@ -202,7 +202,7 @@ All database operations automatically sync to pgvector:
 ## 📚 Related Documentation
 
 - `docs/DATABASE_SCHEMA.md` - Complete database schema documentation
-- `docs/PGVECTOR_SETUP.md` - PostgreSQL + pgvector setup guide
+- `docs/PGVECTOR_SETUP.md` - Neon.tech (PostgreSQL + pgvector) setup guide
 - `docs/NEON_MIGRATION_PLAN.md` - Migration guide for Neon.tech (serverless PostgreSQL)
 - `docs/PGVECTOR_ONLY_ARCHITECTURE.md` - Architecture design decisions
 - `docs/COMPLETE_JSON_TO_PGVECTOR_MIGRATION.md` - Migration details

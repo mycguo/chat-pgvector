@@ -9,7 +9,7 @@ A comprehensive job search management application with:
 
 ## 🏗️ Architecture
 
-**PostgreSQL + pgvector** is used as the single source of truth for all structured data and semantic search. 
+**Neon.tech (serverless PostgreSQL) + pgvector** is used as the single source of truth for all structured data and semantic search. 
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Complete architecture overview
 - [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) - Detailed database schema documentation
@@ -19,7 +19,7 @@ A comprehensive job search management application with:
 
 ### Prerequisites
 
-1. **PostgreSQL** with pgvector extension installed
+1. **Neon.tech account** (free tier available) - [Sign up](https://neon.tech/)
 2. **Python 3.10+**
 3. **Google API Key** for embeddings
 
@@ -33,12 +33,16 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Set up PostgreSQL (see docs/PGVECTOR_SETUP.md)
-# Configure environment variables (DATABASE_URL, GOOGLE_API_KEY)
+# Set up Neon.tech database (see docs/PGVECTOR_SETUP.md)
+# 1. Sign up at https://neon.tech/
+# 2. Create a new project and database
+# 3. Get your connection string from the dashboard
+# 4. Set DATABASE_URL environment variable:
+export DATABASE_URL="postgresql://username:password@ep-xxx.us-east-2.aws.neon.tech:5432/chat_pgvector?sslmode=require"
 
-# Run migrations
-psql -d chat_pgvector -f storage/migrations/001_create_vector_tables.sql
-psql -d chat_pgvector -f storage/migrations/002_add_jsonb_indexes.sql
+# Run migrations (using Neon connection string)
+psql "$DATABASE_URL" -f storage/migrations/001_create_vector_tables.sql
+psql "$DATABASE_URL" -f storage/migrations/002_add_jsonb_indexes.sql
 
 # Start the application
 streamlit run app.py
@@ -61,5 +65,5 @@ documents import
 audio transcription
 ## moviepy: 
 video processing
-## PostgreSQL: 
-Primary database for all structured data and vector storage
+## Neon.tech (PostgreSQL): 
+Serverless PostgreSQL database for all structured data and vector storage (managed, auto-scaling)

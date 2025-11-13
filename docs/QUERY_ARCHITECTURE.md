@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-The application uses **PostgreSQL + pgvector as the single source of truth** for all data:
+The application uses **Neon.tech (serverless PostgreSQL) + pgvector as the single source of truth** for all data:
 
 1. **Structured Data** → Stored in `metadata['data']` JSONB field
 2. **Semantic Search** → Formatted text in `metadata['text']` with vector embeddings
@@ -20,7 +20,7 @@ User Question → detect_data_query_intent()
               → answer_data_query() 
               → JobSearchDB / InterviewDB 
               → PgVectorStore.list_records()
-              → PostgreSQL JSONB query
+              → Neon.tech PostgreSQL JSONB query
               → Return structured data from metadata['data']
 ```
 
@@ -64,7 +64,7 @@ apps = db.applications_store.list_records(
 ```
 User Question → PgVectorStore.similarity_search() 
               → Generate query embedding
-              → PostgreSQL vector cosine similarity
+              → Neon.tech PostgreSQL vector cosine similarity
               → Returns top-k similar documents
               → Extract text from metadata['text']
               → Pass to LLM for answer
@@ -87,7 +87,7 @@ response = chain.invoke({"context": combined_context, "questions": user_question
 ```
 
 **What gets queried**:
-- `vector_documents` table in PostgreSQL
+- `vector_documents` table in Neon.tech PostgreSQL
 - Text content that was embedded (conversations, uploaded docs, interview Q&A text)
 
 **Result**: Text documents returned, passed to LLM for answer generation
