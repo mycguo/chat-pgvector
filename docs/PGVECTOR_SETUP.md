@@ -2,9 +2,33 @@
 
 ## Quick Start
 
-You have two options: **Docker** (quick setup) or **Local PostgreSQL** (no Docker needed).
+You have three options:
+- **Neon.tech** (serverless, recommended for production) - See [NEON_MIGRATION_PLAN.md](NEON_MIGRATION_PLAN.md)
+- **Docker** (quick local setup)
+- **Local PostgreSQL** (no Docker needed)
 
-### Option A: Docker Setup (Quick & Easy)
+### Option A: Neon.tech (Serverless PostgreSQL)
+
+**Recommended for production deployments.**
+
+Neon.tech provides a fully managed PostgreSQL service with pgvector support, auto-scaling, and a generous free tier.
+
+**Quick Setup:**
+1. Sign up at [neon.tech](https://neon.tech/)
+2. Create a new project and database
+3. Get your connection string from the dashboard
+4. Set `DATABASE_URL` environment variable (includes SSL)
+
+**Connection String Format:**
+```
+postgresql://username:password@ep-xxx.us-east-2.aws.neon.tech:5432/chat_pgvector?sslmode=require
+```
+
+**For detailed migration guide**, see [NEON_MIGRATION_PLAN.md](NEON_MIGRATION_PLAN.md)
+
+---
+
+### Option B: Docker Setup (Quick & Easy)
 
 If you have Docker installed, use the automated script:
 ```bash
@@ -21,7 +45,7 @@ docker run -d \
   pgvector/pgvector:pg16
 ```
 
-### Option B: Local PostgreSQL (No Docker Required)
+### Option C: Local PostgreSQL (No Docker Required)
 
 **Recommended if you already have PostgreSQL or prefer local installation.**
 
@@ -84,6 +108,12 @@ CREATE EXTENSION vector;
 ```
 
 ### 3. Configure Environment Variables
+
+**For Neon.tech:**
+```bash
+# Get connection string from Neon dashboard (includes SSL)
+export DATABASE_URL="postgresql://username:password@ep-xxx.us-east-2.aws.neon.tech:5432/chat_pgvector?sslmode=require"
+```
 
 **For Local PostgreSQL (no password by default on macOS):**
 ```bash

@@ -203,6 +203,7 @@ All database operations automatically sync to pgvector:
 
 - `docs/DATABASE_SCHEMA.md` - Complete database schema documentation
 - `docs/PGVECTOR_SETUP.md` - PostgreSQL + pgvector setup guide
+- `docs/NEON_MIGRATION_PLAN.md` - Migration guide for Neon.tech (serverless PostgreSQL)
 - `docs/PGVECTOR_ONLY_ARCHITECTURE.md` - Architecture design decisions
 - `docs/COMPLETE_JSON_TO_PGVECTOR_MIGRATION.md` - Migration details
 - `docs/QUERY_ARCHITECTURE.md` - Query patterns and examples

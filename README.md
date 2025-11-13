@@ -13,6 +13,7 @@ A comprehensive job search management application with:
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Complete architecture overview
 - [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) - Detailed database schema documentation
+- [docs/NEON_MIGRATION_PLAN.md](docs/NEON_MIGRATION_PLAN.md) - Migration guide for Neon.tech (serverless PostgreSQL)
 
 ## 🚀 Quick Start
 
