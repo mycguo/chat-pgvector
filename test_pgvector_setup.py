@@ -81,7 +81,7 @@ def test_connection():
         else:
             print("❌ Database connection failed")
             print("   Check your environment variables:")
-            print("   - DATABASE_URL or")
+            print("   - NEON_DATABASE_URL (or legacy DATABASE_URL) or")
             print("   - POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD")
             return False
     except Exception as e:

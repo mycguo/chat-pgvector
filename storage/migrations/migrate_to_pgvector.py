@@ -379,7 +379,7 @@ class VectorStoreMigrator:
         if not test_connection():
             return {
                 "success": False,
-                "error": "Database connection failed. Check your DATABASE_URL or PostgreSQL connection."
+                "error": "Database connection failed. Check your NEON_DATABASE_URL or PostgreSQL connection."
             }
         
         print("=" * 60)

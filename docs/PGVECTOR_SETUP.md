@@ -19,7 +19,7 @@ Neon.tech provides a fully managed PostgreSQL service with pgvector support, aut
 1. Sign up at [neon.tech](https://neon.tech/)
 2. Create a new project and database
 3. Get your connection string from the dashboard
-4. Set `DATABASE_URL` environment variable (includes SSL)
+4. Set `NEON_DATABASE_URL` in Streamlit secrets or environment variable (includes SSL)
 
 **Connection String Format:**
 ```
@@ -118,13 +118,18 @@ CREATE EXTENSION vector;
 **For Neon.tech:**
 ```bash
 # Get connection string from Neon dashboard (includes SSL)
-export DATABASE_URL="postgresql://username:password@ep-xxx.us-east-2.aws.neon.tech:5432/chat_pgvector?sslmode=require"
+export NEON_DATABASE_URL="postgresql://username:password@ep-xxx.us-east-2.aws.neon.tech:5432/chat_pgvector?sslmode=require"
 ```
 
-**For Local PostgreSQL (no password by default on macOS):**
+**Or set in Streamlit secrets** (`.streamlit/secrets.toml`):
+```toml
+NEON_DATABASE_URL = "postgresql://username:password@ep-xxx.us-east-2.aws.neon.tech:5432/chat_pgvector?sslmode=require"
+```
+
+**For Local PostgreSQL (no password by default on macOS) - Development Only:**
 ```bash
 # Option 1: Full connection string (no password needed if using peer auth)
-export DATABASE_URL=postgresql://postgres@localhost:5432/chat_pgvector
+export NEON_DATABASE_URL=postgresql://postgres@localhost:5432/chat_pgvector
 
 # Option 2: Individual components
 export POSTGRES_HOST=localhost
@@ -134,16 +139,16 @@ export POSTGRES_USER=postgres
 # POSTGRES_PASSWORD not needed if using peer authentication
 ```
 
-**For Docker or password-protected PostgreSQL:**
+**For Docker or password-protected PostgreSQL - Development Only:**
 ```bash
-export DATABASE_URL=postgresql://postgres:your_password@localhost:5432/chat_pgvector
+export NEON_DATABASE_URL=postgresql://postgres:your_password@localhost:5432/chat_pgvector
 # Or individual components with password
 export POSTGRES_PASSWORD=your_password
 ```
 
 **For Streamlit Cloud**, add to `.streamlit/secrets.toml`:
 ```toml
-DATABASE_URL = "postgresql://user:password@host:port/database"
+NEON_DATABASE_URL = "postgresql://username:password@ep-xxx.us-east-2.aws.neon.tech:5432/chat_pgvector?sslmode=require"
 ```
 
 ### 5. Install Python Dependencies

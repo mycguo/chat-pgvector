@@ -37,12 +37,12 @@ pip install -r requirements.txt
 # 1. Sign up at https://neon.tech/
 # 2. Create a new project and database
 # 3. Get your connection string from the dashboard
-# 4. Set DATABASE_URL environment variable:
-export DATABASE_URL="postgresql://username:password@ep-xxx.us-east-2.aws.neon.tech:5432/chat_pgvector?sslmode=require"
+# 4. Set NEON_DATABASE_URL environment variable (or use Streamlit secrets):
+export NEON_DATABASE_URL="postgresql://username:password@ep-xxx.us-east-2.aws.neon.tech:5432/chat_pgvector?sslmode=require"
 
 # Run migrations (using Neon connection string)
-psql "$DATABASE_URL" -f storage/migrations/001_create_vector_tables.sql
-psql "$DATABASE_URL" -f storage/migrations/002_add_jsonb_indexes.sql
+psql "$NEON_DATABASE_URL" -f storage/migrations/001_create_vector_tables.sql
+psql "$NEON_DATABASE_URL" -f storage/migrations/002_add_jsonb_indexes.sql
 
 # Start the application
 streamlit run app.py

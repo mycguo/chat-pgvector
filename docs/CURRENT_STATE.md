@@ -137,9 +137,9 @@ docs = vector_store.similarity_search("software engineer at Google", k=5)
 ## 🚀 Setup Requirements
 
 1. **Neon.tech account** (free tier available) - [Sign up](https://neon.tech/)
-2. **Environment Variables**:
-   - `DATABASE_URL` - Neon.tech connection string (includes SSL)
-   - `GOOGLE_API_KEY` for embeddings
+2. **Configuration**:
+   - `NEON_DATABASE_URL` - Neon.tech connection string (set in Streamlit secrets or environment variable, includes SSL)
+   - `GOOGLE_API_KEY` for embeddings (set in Streamlit secrets or environment variable)
 3. **Run Migrations** (using Neon connection string):
    - `001_create_vector_tables.sql` - Create tables
    - `002_add_jsonb_indexes.sql` - Add indexes

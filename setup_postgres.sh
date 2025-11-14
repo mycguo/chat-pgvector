@@ -77,8 +77,10 @@ if command -v docker &> /dev/null; then
     echo "  export POSTGRES_USER=postgres"
     echo "  export POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
     echo ""
-    echo "Or use connection string:"
-    echo "  export DATABASE_URL=postgresql://postgres:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB"
+    echo "Or use connection string (for local development only):"
+    echo "  export NEON_DATABASE_URL=postgresql://postgres:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB"
+    echo ""
+    echo "Note: For production, use Neon.tech and set NEON_DATABASE_URL with your Neon connection string."
     
 else
     echo "❌ Docker not found."
