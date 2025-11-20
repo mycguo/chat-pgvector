@@ -203,6 +203,68 @@ def main():
     
     # Initialize database
     db = JobSearchDB()
+
+    # Create Interview Section
+    with st.expander("➕ New Interview", expanded=False):
+        # Get active applications for dropdown
+        apps = db.list_applications()
+        # Sort by company name
+        apps.sort(key=lambda x: x.company.lower())
+        
+        active_apps = [app for app in apps if app.status not in ['rejected', 'withdrawn']]
+        
+        if not active_apps:
+            st.warning("You need active applications to schedule an interview. Go to Applications page to add one.")
+        else:
+            with st.form("create_interview_form"):
+                # Application selection
+                app_options = {f"{app.company} - {app.role}": app.id for app in active_apps}
+                selected_app_label = st.selectbox("Application", options=list(app_options.keys()))
+                selected_app_id = app_options[selected_app_label]
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    new_date = st.date_input("Date", min_value=datetime.now().date())
+                    new_type = st.selectbox("Type", ["Interview", "Screening", "Technical", "Behavioral", "Onsite", "Phone", "Video"])
+                
+                with col2:
+                    # Round current time to next 30 mins for convenience
+                    now = datetime.now()
+                    minute = (now.minute // 30 + 1) * 30
+                    start_time = now.replace(minute=0, second=0) + timedelta(minutes=minute)
+                    new_time = st.time_input("Time", value=start_time.time())
+                    new_interviewer = st.text_input("Interviewer (Optional)")
+                
+                new_notes = st.text_area("Notes (Optional)")
+                
+                submitted = st.form_submit_button("Schedule Interview")
+                
+                if submitted:
+                    # Format notes
+                    time_str = new_time.strftime("%I:%M %p")
+                    formatted_notes = f"Time: {time_str}"
+                    if new_interviewer:
+                        formatted_notes += f"\nInterviewer: {new_interviewer}"
+                    if new_notes:
+                        formatted_notes += f"\n{new_notes}"
+                    
+                    success = db.add_timeline_event(
+                        selected_app_id,
+                        event_type=new_type.lower(),
+                        event_date=new_date.strftime("%Y-%m-%d"),
+                        notes=formatted_notes
+                    )
+                    
+                    if success:
+                        # Also update status if it's just 'applied'
+                        app = db.get_application(selected_app_id)
+                        if app and app.status == 'applied':
+                            db.update_status(selected_app_id, 'interview', "Status updated via Interview Schedule")
+                            
+                        st.success("✅ Interview scheduled successfully!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to schedule interview.")
     
     # Get all interviews
     interviews = get_all_interviews(db)
