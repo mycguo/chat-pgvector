@@ -15,7 +15,7 @@ from unittest.mock import patch, MagicMock
 
 # Skip tests if Google API key is not available
 skip_without_api_key = pytest.mark.skipif(
-    not os.getenv("GOOGLE_API_KEY") and not os.getenv("GENAI_API_KEY"),
+    not os.getenv("GOOGLE_API_KEY"),
     reason="Google API key not available"
 )
 
@@ -284,7 +284,13 @@ class TestRememberFeatureIntegration:
 
 def test_configuration_info():
     """Print test configuration"""
-    has_google_key = bool(os.getenv("GOOGLE_API_KEY") or os.getenv("GENAI_API_KEY"))
+    import os
+    import google.generativeai as genai
+
+    google_api_key = os.getenv("GOOGLE_API_KEY")
+    if google_api_key:
+        genai.configure(api_key=google_api_key)
+    has_google_key = bool(google_api_key)
 
     print("\n" + "="*60)
     print("Remember Feature Test Configuration")

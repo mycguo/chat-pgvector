@@ -55,7 +55,8 @@ class PgVectorStore:
         self,
         collection_name: str = "personal_assistant",
         embedding_model: str = "models/gemini-embedding-001",
-        user_id: str = None
+        user_id: str = None,
+        output_dimensionality: int = 1536
     ):
         """
         Initialize PostgreSQL vector store.
@@ -77,7 +78,10 @@ class PgVectorStore:
         
         self.user_id = user_id
         self.collection_name = collection_name
-        self.embedding = GoogleGenerativeAIEmbeddings(model=embedding_model)
+        self.embedding = GoogleGenerativeAIEmbeddings(
+            model=embedding_model, 
+            output_dimensionality=output_dimensionality
+        )
         self._encryption_enabled = HAS_ENCRYPTION and is_encryption_enabled() if HAS_ENCRYPTION else False
         
         # Dimensionality reduction settings
@@ -291,6 +295,51 @@ class PgVectorStore:
                 ON vector_documents USING gin (metadata);
             """
 
+    def _generate_embeddings_with_retry(self, texts: List[str], batch_size: int = 10) -> List[List[float]]:
+        """
+        Generate embeddings with batching and retry logic to handle rate limits.
+        
+        Args:
+            texts: List of texts to embed
+            batch_size: Number of texts to process at once
+            
+        Returns:
+            List of embeddings
+        """
+        import time
+        import random
+        
+        all_embeddings = []
+        total_texts = len(texts)
+        
+        for i in range(0, total_texts, batch_size):
+            batch = texts[i:i + batch_size]
+            print(f"Processing batch {i//batch_size + 1}/{(total_texts + batch_size - 1)//batch_size} ({len(batch)} texts)...")
+            
+            max_retries = 5
+            base_delay = 2  # seconds
+            
+            for attempt in range(max_retries):
+                try:
+                    batch_embeddings = self.embedding.embed_documents(batch)
+                    all_embeddings.extend(batch_embeddings)
+                    break
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "429" in error_str or "resource exhausted" in error_str or "quota" in error_str:
+                        if attempt < max_retries - 1:
+                            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                            print(f"Rate limit hit. Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries})...")
+                            time.sleep(delay)
+                        else:
+                            print(f"Failed after {max_retries} attempts: {e}")
+                            raise
+                    else:
+                        # Not a rate limit error, raise immediately
+                        raise e
+                        
+        return all_embeddings
+
     def add_texts(
         self, 
         texts: List[str], 
@@ -312,8 +361,8 @@ class PgVectorStore:
         # Ensure table exists (will detect dimension if needed)
         self._ensure_table_exists()
 
-        # Generate embeddings
-        embeddings = self.embedding.embed_documents(texts)
+        # Generate embeddings with batching and retry
+        embeddings = self._generate_embeddings_with_retry(texts)
         
         # Apply dimensionality reduction if needed
         embeddings = self._reduce_dimensions(embeddings, fit_pca=True)
@@ -733,7 +782,8 @@ class PgVectorStore:
         embedding_model: str = "models/gemini-embedding-001",
         metadatas: Optional[List[dict]] = None,
         collection_name: str = "personal_assistant",
-        user_id: str = None
+        user_id: str = None,
+        output_dimensionality: int = 1536
     ):
         """
         Create a PgVectorStore from texts.
@@ -751,7 +801,8 @@ class PgVectorStore:
         store = cls(
             collection_name=collection_name,
             embedding_model=embedding_model,
-            user_id=user_id
+            user_id=user_id,
+            output_dimensionality=output_dimensionality
         )
         store.add_texts(texts, metadatas)
         return store

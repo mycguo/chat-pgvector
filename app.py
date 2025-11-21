@@ -23,7 +23,7 @@ sys.path.insert(0, '.')
 from components.quick_notes import render_quick_notes
 
 
-genai.configure(api_key=os.getenv("GENAI_API_KEY"))
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def get_prompt_template():
     return PromptTemplate()

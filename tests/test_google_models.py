@@ -18,7 +18,7 @@ from typing import List
 
 # Skip tests if Google API key is not available
 skip_without_api_key = pytest.mark.skipif(
-    not os.getenv("GOOGLE_API_KEY") and not os.getenv("GENAI_API_KEY"),
+    not os.getenv("GOOGLE_API_KEY"),
     reason="Google API key not available"
 )
 
@@ -366,7 +366,10 @@ class TestModelCompatibility:
 # Test configuration information
 def test_print_configuration_info():
     """Print test configuration information"""
-    has_google_key = bool(os.getenv("GOOGLE_API_KEY") or os.getenv("GENAI_API_KEY"))
+    import google.generativeai as genai
+    has_google_key = bool(os.getenv("GOOGLE_API_KEY"))
+    if has_google_key:
+        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
     print("\n" + "="*60)
     print("Google Models Test Configuration")
@@ -379,7 +382,7 @@ def test_print_configuration_info():
 
     if not has_google_key:
         print("⚠️  WARNING: Most tests will be skipped without Google API key")
-        print("   Set GOOGLE_API_KEY or GENAI_API_KEY environment variable to run all tests")
+        print("   Set GOOGLE_API_KEY environment variable to run all tests")
 
 
 if __name__ == "__main__":

@@ -51,8 +51,6 @@ To run all tests including API-dependent ones:
 ```bash
 # Set your Google API key
 export GOOGLE_API_KEY="your_google_api_key_here"
-# OR
-export GENAI_API_KEY="your_google_api_key_here"
 
 # Activate virtual environment
 source .venv/bin/activate
@@ -81,7 +79,7 @@ pytest tests/test_google_models.py::test_print_configuration_info -v -s
 ### Without API Key
 ```
 ⚠️  WARNING: Most tests will be skipped without Google API key
-Set GOOGLE_API_KEY or GENAI_API_KEY environment variable to run all tests
+Set GOOGLE_API_KEY environment variable to run all tests
 
 2 passed, 11 skipped
 ```

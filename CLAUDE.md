@@ -97,7 +97,6 @@ The application supports multiple vector store backends:
 ```bash
 # Core AI Services
 GOOGLE_API_KEY=your_google_key
-GENAI_API_KEY=your_google_key
 NVIDIA_API_KEY=your_nvidia_key
 ASSEMBLYAI_API_KEY=your_assemblyai_key
 
@@ -117,7 +116,6 @@ BUCKET_NAME=your_bucket
 For production deployment, use Streamlit secrets in `.streamlit/secrets.toml`:
 ```toml
 GOOGLE_API_KEY = "your_key"
-GENAI_API_KEY = "your_key"
 # ... other secrets
 ```
 

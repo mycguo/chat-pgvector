@@ -15,10 +15,6 @@ try:
             # Set environment variables from Streamlit secrets
             if 'GOOGLE_API_KEY' in st.secrets:
                 os.environ['GOOGLE_API_KEY'] = st.secrets['GOOGLE_API_KEY']
-            if 'GENAI_API_KEY' in st.secrets:
-                os.environ['GENAI_API_KEY'] = st.secrets['GENAI_API_KEY']
-            if 'GEMINI_API_KEY' in st.secrets:
-                os.environ['GENAI_API_KEY'] = st.secrets['GEMINI_API_KEY']
     except:
         pass
 except ImportError:
@@ -41,10 +37,6 @@ if tomllib:
                 secrets = tomllib.load(f)
                 if 'GOOGLE_API_KEY' in secrets:
                     os.environ['GOOGLE_API_KEY'] = str(secrets['GOOGLE_API_KEY'])
-                if 'GENAI_API_KEY' in secrets:
-                    os.environ['GENAI_API_KEY'] = str(secrets['GENAI_API_KEY'])
-                if 'GEMINI_API_KEY' in secrets:
-                    os.environ['GENAI_API_KEY'] = str(secrets['GEMINI_API_KEY'])
         except Exception as e:
             print(f"Note: Could not load secrets.toml: {e}")
 
