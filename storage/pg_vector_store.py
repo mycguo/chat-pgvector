@@ -756,6 +756,108 @@ class PgVectorStore:
             print(f"Error listing records: {e}")
             return []
 
+    def list_sources(self) -> List[Dict[str, Any]]:
+        """
+        List all document sources (filenames) in the vector store.
+        
+        Returns:
+            List of dictionaries containing source name and chunk count
+        """
+        try:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # 1. Get sources from metadata (new format)
+                cursor.execute("""
+                    SELECT 
+                        metadata->>'source' as source,
+                        COUNT(*) as count
+                    FROM vector_documents
+                    WHERE user_id = %s 
+                    AND collection_name = %s
+                    AND metadata->>'source' IS NOT NULL
+                    GROUP BY metadata->>'source'
+                    ORDER BY source
+                """, (self.user_id, self.collection_name))
+                
+                results = cursor.fetchall()
+                sources = {row[0]: row[1] for row in results}
+                
+                # 2. Attempt to extract sources from text for legacy documents
+                # Look for "Filename: <name>" pattern in the text
+                # This is a heuristic for documents uploaded before we started saving metadata
+                cursor.execute("""
+                    SELECT 
+                        substring(text from 'Filename: (.*?)\n') as extracted_source,
+                        COUNT(*) as count
+                    FROM vector_documents
+                    WHERE user_id = %s 
+                    AND collection_name = %s
+                    AND metadata->>'source' IS NULL
+                    AND text LIKE '%%Filename: %%'
+                    GROUP BY extracted_source
+                """, (self.user_id, self.collection_name))
+                
+                legacy_results = cursor.fetchall()
+                
+                for row in legacy_results:
+                    source = row[0]
+                    count = row[1]
+                    if source:
+                        source = source.strip()
+                        if source in sources:
+                            sources[source] += count
+                        else:
+                            sources[source] = count
+                
+                # Convert to list of dicts
+                return [{"source": k, "chunks": v} for k, v in sources.items()]
+                
+        except Exception as e:
+            print(f"Error listing sources: {e}")
+            return []
+
+    def delete_by_source(self, source: str) -> int:
+        """
+        Delete all documents belonging to a specific source (filename).
+        
+        Args:
+            source: The filename/source to delete
+            
+        Returns:
+            Number of deleted chunks
+        """
+        try:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Delete where metadata source matches OR text contains filename pattern
+                # We use a transaction to ensure consistency
+                cursor.execute("""
+                    DELETE FROM vector_documents
+                    WHERE user_id = %s 
+                    AND collection_name = %s
+                    AND (
+                        metadata->>'source' = %s
+                        OR
+                        (metadata->>'source' IS NULL AND text LIKE %s)
+                    )
+                """, (
+                    self.user_id, 
+                    self.collection_name, 
+                    source, 
+                    f"%Filename: {source}\n%"
+                ))
+                
+                deleted_count = cursor.rowcount
+                conn.commit()
+                print(f"Deleted {deleted_count} chunks for source: {source}")
+                return deleted_count
+                
+        except Exception as e:
+            print(f"Error deleting source {source}: {e}")
+            raise
+
     def query_structured(
         self,
         record_type: str,

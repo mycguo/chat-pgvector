@@ -175,9 +175,9 @@ def _safe_save_vector_store(vector_store, collection_name="personal_assistant"):
     pass
 
 
-def get_vector_store(text_chunks):
+def get_vector_store(text_chunks, metadatas=None):
     vector_store = _load_vector_store()
-    vector_store.add_texts(text_chunks)
+    vector_store.add_texts(text_chunks, metadatas=metadatas)
     return vector_store
 
 def get_current_store():
@@ -252,6 +252,37 @@ def login_screen():
     st.button("Log in with Google", on_click=login)
 
 
+def manage_documents():
+    """Render the document management section."""
+    st.header("Manage Documents")
+    
+    vector_store = _load_vector_store()
+    if hasattr(vector_store, 'list_sources'):
+        sources = vector_store.list_sources()
+        
+        if not sources:
+            st.info("No documents found in the knowledge base.")
+            return
+
+        st.subheader(f"Existing Documents ({len(sources)})")
+        
+        # Create a container for the list to keep it organized
+        with st.container():
+            for source in sources:
+                col1, col2, col3 = st.columns([3, 1, 1])
+                with col1:
+                    st.write(f"📄 **{source['source']}**")
+                with col2:
+                    st.caption(f"{source['chunks']} chunks")
+                with col3:
+                    if st.button("Delete", key=f"del_{source['source']}"):
+                        with st.spinner("Deleting..."):
+                            count = vector_store.delete_by_source(source['source'])
+                            st.success(f"Deleted {count} chunks.")
+                            st.rerun()
+        st.divider()
+
+
 def main():
     st.set_page_config(page_title="Upload Documents", page_icon="📚", layout="wide")
     
@@ -260,6 +291,10 @@ def main():
         return
     
     st.title("Job Search Knowledge Base")
+    
+    # Add Manage Documents section
+    manage_documents()
+    
     st.header("Adding Documents to your knowledge base")
     st.write("Upload some documents to get started")
 
@@ -269,103 +304,66 @@ def main():
     if st.button("Submit & Process"):
         with st.spinner("Processing your PDF documents..."):
             if pdf_docs:
-                text, metadata_list = get_pdf_text(pdf_docs)
+                for pdf_doc in pdf_docs:
+                    st.write(f"Processing {pdf_doc.name}...")
+                    try:
+                        pdf = PdfReader(pdf_doc)
+                        text = ""
+                        for page in pdf.pages:
+                            text += page.extract_text()
+                        
+                        # Prepare metadata
+                        metadata = {
+                            'source': pdf_doc.name,
+                            'filename': pdf_doc.name,
+                            'type': 'pdf',
+                            'num_pages': len(pdf.pages)
+                        }
+                        
+                        # Chunk and add
+                        chunks = get_text_chunks(text)
+                        metadatas = [metadata] * len(chunks)
+                        get_vector_store(chunks, metadatas=metadatas)
+                        
+                    except Exception as e:
+                        st.error(f"Error processing {pdf_doc.name}: {e}")
                 
-                # Display metadata for each PDF
-                for metadata in metadata_list:
-                    with st.expander(f"Metadata for {metadata['filename']}"):
-                        st.write(f"Number of pages: {metadata['num_pages']}")
-                        st.write(f"Author: {metadata['author']}")
-                        st.write(f"Title: {metadata['title']}")
-                        st.write(f"Subject: {metadata['subject']}")
-                        st.write(f"Creator: {metadata['creator']}")
-                        st.write(f"Producer: {metadata['producer']}")
-                
-                text_chunks = get_text_chunks(text)
-                get_vector_store(text_chunks)
-                wordcloud_plot = generate_word_cloud(text)
-                st.pyplot(wordcloud_plot)
                 st.success("Documents processed successfully")
+                st.rerun()
 
     st.header("Adding Word or Text Documents")
     word_docs = st.file_uploader("Upload your knowledge base document", type=["docx", "txt"], accept_multiple_files=True)
     if st.button("Submit & Process Documents"):
         with st.spinner("Processing your documents..."):
             if word_docs:
-                all_files = []
                 for doc in word_docs:
                     st.write(f"Processing {doc.name} ... ")
-                    if doc.name.lower().endswith(".docx"):
-                        # Open the file using docx.Document
-                        try:
+                    text = ""
+                    metadata = {'source': doc.name, 'filename': doc.name}
+                    
+                    try:
+                        if doc.name.lower().endswith(".docx"):
                             docx_file = docx.Document(doc)
-                            # Get document metadata
-                            core_properties = docx_file.core_properties
-                            metadata = {
-                                'filename': doc.name,
-                                'author': core_properties.author or 'N/A',
-                                'title': core_properties.title or 'N/A',
-                                'subject': core_properties.subject or 'N/A',
-                                'created': str(core_properties.created) if core_properties.created else 'N/A',
-                                'modified': str(core_properties.modified) if core_properties.modified else 'N/A',
-                                'last_modified_by': core_properties.last_modified_by or 'N/A'
-                            }
-                            
-                            # Add metadata to the text content
-                            text = f"\n\nDocument Metadata:\n"
-                            text += f"Filename: {metadata['filename']}\n"
-                            text += f"Author: {metadata['author']}\n"
-                            text += f"Title: {metadata['title']}\n"
-                            text += f"Subject: {metadata['subject']}\n"
-                            text += f"Created: {metadata['created']}\n"
-                            text += f"Modified: {metadata['modified']}\n"
-                            text += f"Last Modified By: {metadata['last_modified_by']}\n"
-                            text += f"\nDocument Content:\n"
-                            
-                            # Add document content
                             paragraphs = [p.text for p in docx_file.paragraphs]
-                            text += "\n".join(paragraphs)
-                            all_files.append(text)
+                            text = "\n".join(paragraphs)
+                            metadata['type'] = 'docx'
+                        elif doc.name.lower().endswith(".txt"):
+                            text = doc.read().decode("utf-8", errors="replace")
+                            metadata['type'] = 'txt'
+                        else:
+                            st.warning(f"Skipping unsupported file: {doc.name}")
+                            continue
                             
-                            # Display metadata in expander
-                            with st.expander(f"Metadata for {metadata['filename']}"):
-                                for key, value in metadata.items():
-                                    st.write(f"{key.replace('_', ' ').title()}: {value}")
-                                    
-                        except Exception as e:
-                            st.error(f"Error opening the document: {e}")
-                            st.stop()
-                    elif doc.name.lower().endswith(".txt"):
-                        # For text files, add basic metadata
-                        metadata = {
-                            'filename': doc.name,
-                            'type': 'Text File',
-                            'size': f"{len(doc.getvalue())} bytes"
-                        }
+                        # Chunk and add
+                        chunks = get_text_chunks(text)
+                        metadatas = [metadata] * len(chunks)
+                        get_vector_store(chunks, metadatas=metadatas)
                         
-                        # Add metadata to the text content
-                        text = f"\n\nDocument Metadata:\n"
-                        text += f"Filename: {metadata['filename']}\n"
-                        text += f"Type: {metadata['type']}\n"
-                        text += f"Size: {metadata['size']}\n"
-                        text += f"\nDocument Content:\n"
-                        
-                        # Add document content
-                        text += doc.read().decode("utf-8", errors="replace")
-                        all_files.append(text)
-                        
-                        # Display metadata in expander
-                        with st.expander(f"Metadata for {metadata['filename']}"):
-                            for key, value in metadata.items():
-                                st.write(f"{key.replace('_', ' ').title()}: {value}")
-                    else:
-                        raise NotImplementedError(f"File type {doc.name.split('.')[-1]} not supported")
-                all_texts = "\n".join(all_files)
-                text_chunks = get_text_chunks(all_texts)
-                get_vector_store(text_chunks)
-                wordcloud_plot = generate_word_cloud(all_texts)
-                st.pyplot(wordcloud_plot)
+                    except Exception as e:
+                        st.error(f"Error processing {doc.name}: {e}")
+
                 st.success("Documents processed successfully")
+                st.rerun()
 
 
     st.header("Adding Excel Documents")
@@ -406,9 +404,14 @@ def main():
                     for key, value in metadata.items():
                         st.write(f"{key.replace('_', ' ').title()}: {value}")
                 
+                # Add source to metadata
+                metadata['source'] = excel_file.name
+                
                 text_chunks = get_text_chunks(text)
-                get_vector_store(text_chunks)
+                metadatas = [metadata] * len(text_chunks)
+                get_vector_store(text_chunks, metadatas=metadatas)
                 st.success("Documents processed successfully")
+                st.rerun()
 
     st.header("URL fetcher")
     url = st.text_input("Enter the URL")
@@ -437,9 +440,15 @@ def main():
             # print(text)
             wordcloud_plot = generate_word_cloud(text)
             st.pyplot(wordcloud_plot)
+            
+            # Metadata
+            metadata = {'source': url, 'type': 'url'}
+            
             text_chunks = get_text_chunks(text)
-            get_vector_store(text_chunks)
-            st.success("URL processed successfully")         
+            metadatas = [metadata] * len(text_chunks)
+            get_vector_store(text_chunks, metadatas=metadatas)
+            st.success("URL processed successfully")
+            st.rerun()         
     
     
     st.header("Audio support")
