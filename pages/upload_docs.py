@@ -292,9 +292,6 @@ def main():
     
     st.title("Job Search Knowledge Base")
     
-    # Add Manage Documents section
-    manage_documents()
-    
     st.header("Adding Documents to your knowledge base")
     st.write("Upload some documents to get started")
 
@@ -499,6 +496,10 @@ def main():
 
     st.write("This is how to setup secrets in streamlit at local environment https://docs.streamlit.io/develop/concepts/connections/secrets-management")
     st.write("This is how to setup secrets in streamlit at cloud https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management")
+    
+    st.divider()
+    # Add Manage Documents section at the bottom
+    manage_documents()
     
     # Logout button
     st.divider()

@@ -295,13 +295,13 @@ class PgVectorStore:
                 ON vector_documents USING gin (metadata);
             """
 
-    def _generate_embeddings_with_retry(self, texts: List[str], batch_size: int = 10) -> List[List[float]]:
+    def _generate_embeddings_with_retry(self, texts: List[str], batch_size: int = 5) -> List[List[float]]:
         """
         Generate embeddings with batching and retry logic to handle rate limits.
         
         Args:
             texts: List of texts to embed
-            batch_size: Number of texts to process at once
+            batch_size: Number of texts to process at once (default 5 to avoid rate limits)
             
         Returns:
             List of embeddings
@@ -316,8 +316,12 @@ class PgVectorStore:
             batch = texts[i:i + batch_size]
             print(f"Processing batch {i//batch_size + 1}/{(total_texts + batch_size - 1)//batch_size} ({len(batch)} texts)...")
             
-            max_retries = 5
-            base_delay = 2  # seconds
+            # Mandatory delay between batches to throttle requests
+            if i > 0:
+                time.sleep(1.0)
+            
+            max_retries = 7
+            base_delay = 5  # seconds
             
             for attempt in range(max_retries):
                 try:
