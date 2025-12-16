@@ -5,8 +5,7 @@ from unittest.mock import patch, MagicMock
 
 _dummy_nvidia = ModuleType('langchain_nvidia_ai_endpoints')
 _dummy_nvidia.ChatNVIDIA = MagicMock()
-_dummy_genai = ModuleType('google.generativeai')
-_dummy_genai.configure = MagicMock()
+# Note: google.generativeai mock removed - no longer used
 _dummy_lgg = ModuleType('langchain_google_genai')
 _dummy_lgg.GoogleGenerativeAIEmbeddings = MagicMock(return_value=object())
 _dummy_lgg.ChatGoogleGenerativeAI = MagicMock()
@@ -17,7 +16,6 @@ def test_get_prompt_template():
     mock_prompt = MagicMock(return_value='tmpl')
     with patch.dict(sys.modules, {
         'langchain_nvidia_ai_endpoints': _dummy_nvidia,
-        'google.generativeai': _dummy_genai,
         'langchain_google_genai': _dummy_lgg,
         'assemblyai': _dummy_assembly,
     }), \
@@ -33,7 +31,6 @@ def test_get_prompt_template():
 def test_get_text_chunks_split():
     with patch.dict(sys.modules, {
         'langchain_nvidia_ai_endpoints': _dummy_nvidia,
-        'google.generativeai': _dummy_genai,
         'langchain_google_genai': _dummy_lgg,
         'assemblyai': _dummy_assembly,
     }), \

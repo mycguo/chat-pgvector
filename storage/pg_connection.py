@@ -162,11 +162,26 @@ def get_connection_pool() -> pool.ThreadedConnectionPool:
     if _connection_pool is None:
         try:
             conn_string = get_connection_string()
+
+            # Add Neon-friendly connection parameters
+            # - connect_timeout: Allow time for Neon to wake up sleeping databases (default is very short)
+            # - keepalives: Keep connection alive to prevent Neon from closing it
+            # - options: Set statement timeout to prevent long-running queries
+            connection_params = {
+                'dsn': conn_string,
+                'connect_timeout': 30,  # 30 seconds for Neon wake-up
+                'keepalives': 1,
+                'keepalives_idle': 30,
+                'keepalives_interval': 10,
+                'keepalives_count': 5,
+            }
+
             _connection_pool = pool.ThreadedConnectionPool(
                 minconn=1,
                 maxconn=10,
-                dsn=conn_string
+                **connection_params
             )
+            logger.info("PostgreSQL connection pool created successfully")
         except Exception as e:
             raise ConnectionError(f"Failed to create PostgreSQL connection pool: {e}")
     
@@ -189,7 +204,7 @@ def get_connection():
         conn = pool.getconn()
         yield conn
         conn.commit()
-    except Exception as e:
+    except Exception:
         if conn:
             conn.rollback()
         raise

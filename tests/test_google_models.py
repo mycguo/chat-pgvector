@@ -366,10 +366,8 @@ class TestModelCompatibility:
 # Test configuration information
 def test_print_configuration_info():
     """Print test configuration information"""
-    import google.generativeai as genai
     has_google_key = bool(os.getenv("GOOGLE_API_KEY"))
-    if has_google_key:
-        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+    # Note: Configuration no longer needed - langchain_google_genai handles it automatically
 
     print("\n" + "="*60)
     print("Google Models Test Configuration")

@@ -285,11 +285,9 @@ class TestRememberFeatureIntegration:
 def test_configuration_info():
     """Print test configuration"""
     import os
-    import google.generativeai as genai
 
     google_api_key = os.getenv("GOOGLE_API_KEY")
-    if google_api_key:
-        genai.configure(api_key=google_api_key)
+    # Note: Configuration no longer needed - langchain_google_genai handles it automatically
     has_google_key = bool(google_api_key)
 
     print("\n" + "="*60)

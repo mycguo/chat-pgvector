@@ -9,7 +9,6 @@ from datetime import datetime
 if "USER_AGENT" not in os.environ:
     os.environ["USER_AGENT"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 
-import google.generativeai as genai
 from storage.pg_vector_store import PgVectorStore as MilvusVectorStore
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
@@ -22,8 +21,8 @@ import boto3
 sys.path.insert(0, '.')
 from components.quick_notes import render_quick_notes
 
-
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# Note: Google API key is automatically picked up by langchain_google_genai
+# No explicit configuration needed - it uses GOOGLE_API_KEY environment variable
 
 def get_prompt_template():
     return PromptTemplate()
