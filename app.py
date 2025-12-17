@@ -746,7 +746,7 @@ def download_faiss_from_s3():
     # Legacy function - no longer needed with PostgreSQL backend
     print("Vector data is now stored in PostgreSQL. Migration from FAISS/S3 is no longer supported.")
 
-from storage.auth_utils import is_user_logged_in, login, logout
+from storage.auth_utils import is_user_logged_in, logout, render_login_button
 
 
 def login_screen():
@@ -755,7 +755,7 @@ def login_screen():
 
     # Only show login button if login hasn't been attempted yet
     if 'login_attempted' not in st.session_state:
-        st.button("Log in with Google", on_click=login, use_container_width=True, type="primary")
+        render_login_button(use_container_width=True, type="primary")
     else:
         st.info("🔄 Login in progress... Please complete the authentication.")
         if st.button("Reset login state"):

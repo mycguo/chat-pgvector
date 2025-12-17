@@ -17,7 +17,7 @@ import random
 sys.path.insert(0, '.')
 
 from storage.interview_db import InterviewDB
-from storage.auth_utils import is_user_logged_in, login, logout
+from storage.auth_utils import is_user_logged_in, logout, render_login_button
 from models.interview_prep import (
     create_interview_question,
     create_technical_concept,
@@ -1279,7 +1279,7 @@ def show_recent_questions(db: InterviewDB, limit: int = 10):
 def login_screen():
     st.header("Please log in to access Interview Prep")
     st.subheader("Please log in.")
-    st.button("Log in with Google", on_click=login)
+    render_login_button()
 
 
 def main():

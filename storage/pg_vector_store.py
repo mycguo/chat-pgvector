@@ -42,6 +42,8 @@ except ImportError:
 
 from storage.pg_connection import get_connection, ensure_pgvector_extension
 
+LEGACY_DEFAULT_USER_ID = "default_user"
+
 
 class PgVectorStore:
     """
@@ -103,6 +105,55 @@ class PgVectorStore:
         
         # Ensure table exists (run migration if needed)
         self._ensure_table_exists()
+        self._migrate_legacy_user_data()
+
+    def _migrate_legacy_user_data(self) -> None:
+        """Move legacy default_user records to the authenticated user once."""
+        if self.user_id == LEGACY_DEFAULT_USER_ID:
+            return
+
+        try:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM vector_documents
+                    WHERE user_id = %s AND collection_name = %s
+                    """,
+                    (self.user_id, self.collection_name),
+                )
+                current_count = cursor.fetchone()[0]
+                if current_count:
+                    return
+
+                cursor.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM vector_documents
+                    WHERE user_id = %s AND collection_name = %s
+                    """,
+                    (LEGACY_DEFAULT_USER_ID, self.collection_name),
+                )
+                legacy_count = cursor.fetchone()[0]
+                if not legacy_count:
+                    return
+
+                cursor.execute(
+                    """
+                    UPDATE vector_documents
+                    SET user_id = %s
+                    WHERE user_id = %s AND collection_name = %s
+                    """,
+                    (self.user_id, LEGACY_DEFAULT_USER_ID, self.collection_name),
+                )
+                conn.commit()
+                print(
+                    f"Migrated {legacy_count} legacy '{self.collection_name}' records "
+                    f"from {LEGACY_DEFAULT_USER_ID} to {self.user_id}"
+                )
+        except Exception as e:
+            print(f"Warning: Could not migrate legacy user data: {e}")
 
     def _ensure_table_exists(self):
         """Ensure the vector_documents table exists, create if not."""
@@ -1024,4 +1075,3 @@ class PgVectorStore:
         else:
             # Simple truncation
             return embedding[:self.max_dimensions]
-

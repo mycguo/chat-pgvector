@@ -4,11 +4,74 @@ Authentication utilities for Streamlit.
 Handles authentication safely across different Streamlit versions and deployment environments.
 """
 
+import os
+from typing import Any, Dict, List, Optional
+
 try:
     import streamlit as st
     HAS_STREAMLIT = True
 except ImportError:
     HAS_STREAMLIT = False
+
+REQUIRED_OAUTH_KEYS = ("oauth_provider", "oauth_client_id", "oauth_client_secret")
+
+
+def get_auth_config_status() -> Dict[str, Any]:
+    """Return OAuth configuration status for the current environment."""
+    if not HAS_STREAMLIT:
+        return {
+            "requires_oauth": False,
+            "is_configured": True,
+            "missing_keys": [],
+            "provider": None,
+        }
+
+    requires_oauth = bool(os.getenv("STREAMLIT_SHARING_MODE"))
+    secrets = getattr(st, "secrets", None)
+    missing_keys: List[str] = []
+    provider = None
+
+    if secrets:
+        provider = secrets.get("oauth_provider")
+        for key in REQUIRED_OAUTH_KEYS:
+            if not secrets.get(key):
+                missing_keys.append(key)
+    else:
+        missing_keys = list(REQUIRED_OAUTH_KEYS)
+
+    is_configured = not (requires_oauth and missing_keys)
+
+    return {
+        "requires_oauth": requires_oauth,
+        "is_configured": is_configured,
+        "missing_keys": missing_keys,
+        "provider": provider,
+    }
+
+
+def render_auth_config_warning(status: Optional[Dict[str, Any]] = None) -> None:
+    """Render a warning telling the user how to fix OAuth configuration."""
+    if not HAS_STREAMLIT:
+        return
+
+    status = status or get_auth_config_status()
+    if not status.get("requires_oauth") or status.get("is_configured"):
+        return
+
+    missing = status.get("missing_keys") or REQUIRED_OAUTH_KEYS
+    missing_keys_list = "\n".join(f"- `{key}`" for key in missing)
+
+    st.error("Google login isn't configured for this Streamlit Cloud deployment.")
+    st.markdown(
+        """
+To fix this, add the following secrets in Streamlit Cloud (**App → Settings → Secrets**),
+then redeploy the app:
+
+{missing_keys}
+
+See `docs/OAUTH_REDIRECT_URI_SETUP.md` for full Google Cloud setup instructions.
+""".format(missing_keys=missing_keys_list)
+    )
 
 
 def is_user_logged_in() -> bool:
@@ -93,6 +156,11 @@ def login():
     Otherwise, initiate the OAuth login flow.
     """
     if HAS_STREAMLIT:
+        status = get_auth_config_status()
+        if not status.get("is_configured"):
+            render_auth_config_warning(status)
+            return
+
         try:
             # Check if user is already logged in via Streamlit auth
             user_already_logged_in = False
@@ -148,3 +216,19 @@ def logout():
             if 'user_id' in st.session_state:
                 del st.session_state['user_id']
 
+
+def render_login_button(label: str = "Log in with Google", **button_kwargs: Any) -> bool:
+    """Render the login button with OAuth configuration validation."""
+    if not HAS_STREAMLIT:
+        return False
+
+    status = get_auth_config_status()
+    disabled = not status.get("is_configured", True)
+    if disabled:
+        render_auth_config_warning(status)
+
+    clicked = st.button(label, disabled=disabled, **button_kwargs)
+    if clicked:
+        login()
+        return True
+    return False
