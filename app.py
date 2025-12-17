@@ -4,26 +4,10 @@ import os
 import re
 import sys
 from datetime import datetime
-import traceback
 
 # Set USER_AGENT early to prevent warnings from libraries that check for it
 if "USER_AGENT" not in os.environ:
     os.environ["USER_AGENT"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-
-# Add global exception handler to catch the NoneType error
-def log_exception(exc_type, exc_value, exc_traceback):
-    """Log uncaught exceptions to stderr"""
-    print(f"\n{'='*70}", file=sys.stderr, flush=True)
-    print(f"UNCAUGHT EXCEPTION:", file=sys.stderr, flush=True)
-    print(f"{'='*70}", file=sys.stderr, flush=True)
-    print(f"Type: {exc_type.__name__}", file=sys.stderr, flush=True)
-    print(f"Value: {exc_value}", file=sys.stderr, flush=True)
-    print(f"\nTraceback:", file=sys.stderr, flush=True)
-    traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stderr)
-    print(f"{'='*70}\n", file=sys.stderr, flush=True)
-
-# Set exception handler
-sys.excepthook = log_exception
 
 from storage.pg_vector_store import PgVectorStore as MilvusVectorStore
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -766,45 +750,17 @@ from storage.auth_utils import is_user_logged_in, login, logout
 
 
 def login_screen():
-    st.header("Please log in to access Job Search Agent")
+    st.markdown("## 🔐 Please log in")
+    st.markdown("Access to Job Search Agent requires authentication.")
 
-    # When authentication is configured in Streamlit Cloud,
-    # this screen should never be reached because Streamlit shows
-    # its own login page first. If we're here, something is wrong.
-
-    if hasattr(st, 'user') and hasattr(st.user, 'is_logged_in'):
-        st.warning("⚠️ Authentication Detected But Not Working Properly")
-        st.write(f"st.user.is_logged_in: {st.user.is_logged_in}")
-
-        st.info("""
-        **Why you're seeing this:**
-
-        Authentication is configured in Streamlit Cloud, but you're not logged in.
-        Normally, Streamlit shows its own login screen automatically.
-
-        **To fix this:**
-        1. Clear your browser cache and cookies for this site
-        2. Try accessing the app in an incognito/private window
-        3. Make sure you're using the correct app URL
-
-        **Or try this:**
-        """)
-
-        # Try manual login as last resort
-        if st.button("🔑 Try Manual Login"):
-            try:
-                if hasattr(st, 'login'):
-                    st.login()
-                else:
-                    st.error("st.login() not available")
-            except Exception as e:
-                st.error(f"❌ Login failed: {e}")
-                st.code(f"{type(e).__name__}: {e}")
+    # Only show login button if login hasn't been attempted yet
+    if 'login_attempted' not in st.session_state:
+        st.button("Log in with Google", on_click=login, use_container_width=True, type="primary")
     else:
-        # Fallback for local/development (no auth configured)
-        st.info("Running in development mode (no authentication required)")
-        if st.button("Log in with Google"):
-            login()
+        st.info("🔄 Login in progress... Please complete the authentication.")
+        if st.button("Reset login state"):
+            if 'login_attempted' in st.session_state:
+                del st.session_state['login_attempted']
             st.rerun()
 
 
@@ -933,17 +889,4 @@ def main():
     st.button("Log out", on_click=logout, width="stretch")
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"\n{'='*70}", file=sys.stderr, flush=True)
-        print(f"EXCEPTION IN MAIN:", file=sys.stderr, flush=True)
-        print(f"{'='*70}", file=sys.stderr, flush=True)
-        print(f"Type: {type(e).__name__}", file=sys.stderr, flush=True)
-        print(f"Value: {e}", file=sys.stderr, flush=True)
-        print(f"\nTraceback:", file=sys.stderr, flush=True)
-        traceback.print_exc(file=sys.stderr)
-        print(f"{'='*70}\n", file=sys.stderr, flush=True)
-
-        # Re-raise to show user
-        raise
+    main()
