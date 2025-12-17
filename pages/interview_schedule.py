@@ -15,7 +15,7 @@ sys.path.insert(0, '.')
 
 from storage.json_db import JobSearchDB
 from models.application import Application, ApplicationEvent
-from storage.auth_utils import is_user_logged_in, login, logout
+from storage.auth_utils import is_user_logged_in, logout, render_login_button
 
 
 def parse_interview_from_event(event: ApplicationEvent, app: Application) -> Optional[Dict]:
@@ -188,7 +188,7 @@ def format_interview_type(interview: Dict) -> str:
 def login_screen():
     st.header("Please log in to access Interview Schedule")
     st.subheader("Please log in.")
-    st.button("Log in with Google", on_click=login)
+    render_login_button()
 
 
 def main():
@@ -582,4 +582,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

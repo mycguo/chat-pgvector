@@ -15,7 +15,7 @@ import re
 sys.path.insert(0, '.')
 
 from storage.resume_db import ResumeDB
-from storage.auth_utils import is_user_logged_in, login, logout
+from storage.auth_utils import is_user_logged_in, logout, render_login_button
 from models.resume import create_resume, extract_skills_from_text, create_tailored_resume
 from PyPDF2 import PdfReader
 import docx
@@ -1026,7 +1026,7 @@ def show_resume_detail(db: ResumeDB, resume_id: str):
 def login_screen():
     st.header("Please log in to access Resume Management")
     st.subheader("Please log in.")
-    st.button("Log in with Google", on_click=login)
+    render_login_button()
 
 
 def main():

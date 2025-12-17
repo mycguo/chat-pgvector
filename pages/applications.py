@@ -16,7 +16,7 @@ sys.path.insert(0, '.')
 from models.application import Application, ContactLink, create_application
 from storage.json_db import JobSearchDB
 from ai.job_matcher import JobMatcher, get_default_user_profile
-from storage.auth_utils import is_user_logged_in, login, logout
+from storage.auth_utils import is_user_logged_in, logout, render_login_button
 from pages.resume import fetch_job_description_from_url
 from components.quick_notes import render_quick_notes
 
@@ -735,7 +735,7 @@ def show_application_detail(db: JobSearchDB, app_id: str):
 def login_screen():
     st.header("Please log in to access Applications")
     st.subheader("Please log in.")
-    st.button("Log in with Google", on_click=login)
+    render_login_button()
 
 
 def main():
