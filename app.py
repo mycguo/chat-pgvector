@@ -4,10 +4,26 @@ import os
 import re
 import sys
 from datetime import datetime
+import traceback
 
 # Set USER_AGENT early to prevent warnings from libraries that check for it
 if "USER_AGENT" not in os.environ:
     os.environ["USER_AGENT"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+
+# Add global exception handler to catch the NoneType error
+def log_exception(exc_type, exc_value, exc_traceback):
+    """Log uncaught exceptions to stderr"""
+    print(f"\n{'='*70}", file=sys.stderr, flush=True)
+    print(f"UNCAUGHT EXCEPTION:", file=sys.stderr, flush=True)
+    print(f"{'='*70}", file=sys.stderr, flush=True)
+    print(f"Type: {exc_type.__name__}", file=sys.stderr, flush=True)
+    print(f"Value: {exc_value}", file=sys.stderr, flush=True)
+    print(f"\nTraceback:", file=sys.stderr, flush=True)
+    traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stderr)
+    print(f"{'='*70}\n", file=sys.stderr, flush=True)
+
+# Set exception handler
+sys.excepthook = log_exception
 
 from storage.pg_vector_store import PgVectorStore as MilvusVectorStore
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -752,11 +768,15 @@ from storage.auth_utils import is_user_logged_in, login, logout
 def login_screen():
     st.header("Please log in to access Job Search Agent")
     st.subheader("Please log in.")
-    
+
     # Only show login button if login hasn't been attempted yet
     # This prevents showing the button during OAuth flow
     if 'login_attempted' not in st.session_state:
-        st.button("Log in with Google", on_click=login)
+        if st.button("Log in with Google"):
+            # Call login directly instead of using on_click
+            # This ensures proper execution order
+            login()
+            st.rerun()  # Force rerun after login attempt
         # Note: After logout → login, OAuth redirect clears session state
         # User will need to click login button again after OAuth completes
     else:
@@ -893,4 +913,17 @@ def main():
     st.button("Log out", on_click=logout, width="stretch")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"\n{'='*70}", file=sys.stderr, flush=True)
+        print(f"EXCEPTION IN MAIN:", file=sys.stderr, flush=True)
+        print(f"{'='*70}", file=sys.stderr, flush=True)
+        print(f"Type: {type(e).__name__}", file=sys.stderr, flush=True)
+        print(f"Value: {e}", file=sys.stderr, flush=True)
+        print(f"\nTraceback:", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        print(f"{'='*70}\n", file=sys.stderr, flush=True)
+
+        # Re-raise to show user
+        raise

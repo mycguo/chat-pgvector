@@ -162,14 +162,30 @@ def login():
             else:
                 # User not logged in, initiate OAuth flow
                 _log("login(): User not logged in, setting login_attempted and calling st.login()")
-                st.session_state['login_attempted'] = True
+
                 if hasattr(st, 'login'):
-                    _log("login(): Calling st.login()")
-                    st.login()
+                    _log("login(): st.login() exists, calling it...")
+                    _log(f"login(): st.session_state type: {type(st.session_state)}")
+                    _log(f"login(): st.session_state id: {id(st.session_state)}")
+
+                    # Set login_attempted AFTER calling st.login() to avoid state issues
+                    try:
+                        _log("login(): About to call st.login()...")
+                        st.login()
+                        _log("login(): st.login() completed successfully")
+                    except Exception as login_error:
+                        _log(f"login(): ERROR calling st.login(): {type(login_error).__name__}: {login_error}")
+                        import traceback
+                        _log(f"Traceback:\n{traceback.format_exc()}")
+                        raise
+
+                    # Only set flag after login succeeds
+                    st.session_state['login_attempted'] = True
                 else:
                     # If st.login doesn't exist but login was attempted, set session flag
                     # This handles environments without auth system
                     _log("login(): st.login() not available, setting authenticated flag")
+                    st.session_state['login_attempted'] = True
                     st.session_state['authenticated_in_session'] = True
         except (AttributeError, TypeError, Exception) as e:
             # If login fails, clear the attempt flag safely
