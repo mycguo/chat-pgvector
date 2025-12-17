@@ -35,7 +35,7 @@ def get_user_id() -> str:
     # Try to get user identifier safely
     user_identifier = None
     try:
-        if hasattr(st, 'user'):
+        if hasattr(st, 'user') and st.user is not None:
             if hasattr(st.user, 'email') and st.user.email:
                 user_identifier = st.user.email
             elif hasattr(st.user, 'name') and st.user.name:
@@ -45,11 +45,12 @@ def get_user_id() -> str:
             else:
                 # Fallback: generate hash from user object
                 try:
-                    user_str = str(st.user.__dict__)
-                    user_identifier = hashlib.md5(user_str.encode()).hexdigest()
+                    if hasattr(st.user, '__dict__') and st.user.__dict__ is not None:
+                        user_str = str(st.user.__dict__)
+                        user_identifier = hashlib.md5(user_str.encode()).hexdigest()
                 except:
                     pass
-    except (AttributeError, KeyError):
+    except (AttributeError, KeyError, TypeError):
         pass
     
     # If we couldn't get a user identifier, use session-based or default

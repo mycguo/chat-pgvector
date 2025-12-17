@@ -14,11 +14,11 @@ except ImportError:
 def is_user_logged_in() -> bool:
     """
     Safely check if user is logged in.
-    
+
     Requires login on every app restart by checking session state.
     Session state is cleared on restart, forcing re-authentication.
     Even if Streamlit's auth persists, we require explicit login action in each session.
-    
+
     Returns:
         True if user is logged in in this session, False otherwise.
         In environments where st.user.is_logged_in is not available,
@@ -26,12 +26,16 @@ def is_user_logged_in() -> bool:
     """
     if not HAS_STREAMLIT:
         return True
-    
+
     try:
+        # Check if session state is available and valid
+        if not hasattr(st, 'session_state') or st.session_state is None:
+            return False
+
         # Check if user is logged in via Streamlit auth
         user_is_logged_in = False
         has_auth_system = False
-        if hasattr(st, 'user') and hasattr(st.user, 'is_logged_in'):
+        if hasattr(st, 'user') and st.user is not None and hasattr(st.user, 'is_logged_in'):
             has_auth_system = True
             user_is_logged_in = st.user.is_logged_in
         
@@ -88,17 +92,22 @@ def login():
     """
     Safely call st.login if available.
     Sets session state flag to authenticate the session.
-    
+
     If user is already logged in (via persisted cookie), just set the session flag.
     Otherwise, initiate the OAuth login flow.
     """
     if HAS_STREAMLIT:
         try:
+            # Check if session state is available
+            if not hasattr(st, 'session_state') or st.session_state is None:
+                # Session state not ready, cannot proceed with login
+                return
+
             # Check if user is already logged in via Streamlit auth
             user_already_logged_in = False
-            if hasattr(st, 'user') and hasattr(st.user, 'is_logged_in'):
+            if hasattr(st, 'user') and st.user is not None and hasattr(st.user, 'is_logged_in'):
                 user_already_logged_in = st.user.is_logged_in
-            
+
             if user_already_logged_in:
                 # User is already logged in via persisted cookie
                 # Just set the session flag to grant access
@@ -115,10 +124,14 @@ def login():
                     # If st.login doesn't exist but login was attempted, set session flag
                     # This handles environments without auth system
                     st.session_state['authenticated_in_session'] = True
-        except (AttributeError, Exception) as e:
-            # If login fails, clear the attempt flag
-            if 'login_attempted' in st.session_state:
-                del st.session_state['login_attempted']
+        except (AttributeError, TypeError, Exception) as e:
+            # If login fails, clear the attempt flag safely
+            try:
+                if hasattr(st, 'session_state') and st.session_state is not None:
+                    if 'login_attempted' in st.session_state:
+                        del st.session_state['login_attempted']
+            except:
+                pass
 
 
 def logout():
@@ -128,23 +141,29 @@ def logout():
     """
     if HAS_STREAMLIT:
         try:
-            # Clear session authentication flags
-            if 'authenticated_in_session' in st.session_state:
-                del st.session_state['authenticated_in_session']
-            if 'login_attempted' in st.session_state:
-                del st.session_state['login_attempted']
-            if 'user_id' in st.session_state:
-                del st.session_state['user_id']
-            
+            # Check if session state is available
+            if hasattr(st, 'session_state') and st.session_state is not None:
+                # Clear session authentication flags
+                if 'authenticated_in_session' in st.session_state:
+                    del st.session_state['authenticated_in_session']
+                if 'login_attempted' in st.session_state:
+                    del st.session_state['login_attempted']
+                if 'user_id' in st.session_state:
+                    del st.session_state['user_id']
+
             # Then call st.logout to clear the cookie
             if hasattr(st, 'logout'):
                 st.logout()
-        except (AttributeError, Exception):
-            # Fallback: clear session state
-            if 'authenticated_in_session' in st.session_state:
-                del st.session_state['authenticated_in_session']
-            if 'login_attempted' in st.session_state:
-                del st.session_state['login_attempted']
-            if 'user_id' in st.session_state:
-                del st.session_state['user_id']
+        except (AttributeError, TypeError, Exception):
+            # Fallback: clear session state safely
+            try:
+                if hasattr(st, 'session_state') and st.session_state is not None:
+                    if 'authenticated_in_session' in st.session_state:
+                        del st.session_state['authenticated_in_session']
+                    if 'login_attempted' in st.session_state:
+                        del st.session_state['login_attempted']
+                    if 'user_id' in st.session_state:
+                        del st.session_state['user_id']
+            except:
+                pass
 
