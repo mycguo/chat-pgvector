@@ -767,24 +767,44 @@ from storage.auth_utils import is_user_logged_in, login, logout
 
 def login_screen():
     st.header("Please log in to access Job Search Agent")
-    st.subheader("Please log in.")
 
-    # Only show login button if login hasn't been attempted yet
-    # This prevents showing the button during OAuth flow
-    if 'login_attempted' not in st.session_state:
-        if st.button("Log in with Google"):
-            # Call login directly instead of using on_click
-            # This ensures proper execution order
-            login()
-            st.rerun()  # Force rerun after login attempt
-        # Note: After logout → login, OAuth redirect clears session state
-        # User will need to click login button again after OAuth completes
+    # When authentication is configured in Streamlit Cloud,
+    # this screen should never be reached because Streamlit shows
+    # its own login page first. If we're here, something is wrong.
+
+    if hasattr(st, 'user') and hasattr(st.user, 'is_logged_in'):
+        st.warning("⚠️ Authentication Detected But Not Working Properly")
+        st.write(f"st.user.is_logged_in: {st.user.is_logged_in}")
+
+        st.info("""
+        **Why you're seeing this:**
+
+        Authentication is configured in Streamlit Cloud, but you're not logged in.
+        Normally, Streamlit shows its own login screen automatically.
+
+        **To fix this:**
+        1. Clear your browser cache and cookies for this site
+        2. Try accessing the app in an incognito/private window
+        3. Make sure you're using the correct app URL
+
+        **Or try this:**
+        """)
+
+        # Try manual login as last resort
+        if st.button("🔑 Try Manual Login"):
+            try:
+                if hasattr(st, 'login'):
+                    st.login()
+                else:
+                    st.error("st.login() not available")
+            except Exception as e:
+                st.error(f"❌ Login failed: {e}")
+                st.code(f"{type(e).__name__}: {e}")
     else:
-        st.info("🔄 Login in progress... Please complete the authentication.")
-        # Add a button to reset if stuck
-        if st.button("Reset login state"):
-            if 'login_attempted' in st.session_state:
-                del st.session_state['login_attempted']
+        # Fallback for local/development (no auth configured)
+        st.info("Running in development mode (no authentication required)")
+        if st.button("Log in with Google"):
+            login()
             st.rerun()
 
 
