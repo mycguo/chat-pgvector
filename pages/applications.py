@@ -733,9 +733,31 @@ def show_application_detail(db: JobSearchDB, app_id: str):
 
 
 def login_screen():
+    # Hide sidebar navigation before login and style the login button with Google blue
+    st.markdown("""
+        <style>
+            [data-testid="stSidebar"] {
+                display: none;
+            }
+            /* Google blue branding for login button */
+            .stButton > button[kind="primary"] {
+                background-color: #4285F4 !important;
+                border-color: #4285F4 !important;
+            }
+            .stButton > button[kind="primary"]:hover {
+                background-color: #357ae8 !important;
+                border-color: #357ae8 !important;
+            }
+            .stButton > button[kind="primary"]:active {
+                background-color: #2a66c9 !important;
+                border-color: #2a66c9 !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     st.header("Please log in to access Applications")
     st.subheader("Please log in.")
-    render_login_button()
+    render_login_button(type="primary", use_container_width=True)
 
 
 def main():
