@@ -23,6 +23,12 @@ def get_user_id() -> str:
         # For non-Streamlit contexts (e.g., tests), return a default
         return "default_user"
 
+    # CRITICAL: Check session state first for consistency
+    # Once we determine a user_id, we cache it in session to ensure consistency
+    # throughout the session (prevents mismatches between add/retrieve operations)
+    if hasattr(st, 'session_state') and 'cached_user_id' in st.session_state:
+        return st.session_state['cached_user_id']
+
     # Safely check if user is logged in
     try:
         if hasattr(st, 'user') and hasattr(st.user, 'is_logged_in'):
@@ -68,6 +74,10 @@ def get_user_id() -> str:
     sanitized = re.sub(r'_+', '_', sanitized)
     # Remove leading/trailing underscores
     sanitized = sanitized.strip('_')
+
+    # Cache in session state for consistency
+    if hasattr(st, 'session_state'):
+        st.session_state['cached_user_id'] = sanitized
 
     return sanitized
 

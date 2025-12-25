@@ -203,6 +203,8 @@ def logout():
                 del st.session_state['login_attempted']
             if 'user_id' in st.session_state:
                 del st.session_state['user_id']
+            if 'cached_user_id' in st.session_state:
+                del st.session_state['cached_user_id']
 
             # Then call st.logout to clear the cookie
             if hasattr(st, 'logout'):
@@ -215,6 +217,8 @@ def logout():
                 del st.session_state['login_attempted']
             if 'user_id' in st.session_state:
                 del st.session_state['user_id']
+            if 'cached_user_id' in st.session_state:
+                del st.session_state['cached_user_id']
 
 
 def render_login_button(label: str = "Log in with Google", **button_kwargs: Any) -> bool:
