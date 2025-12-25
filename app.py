@@ -785,6 +785,41 @@ def login_screen():
                 del st.session_state['login_attempted']
             st.rerun()
 
+    st.divider()
+
+    # Buy Me a Coffee section - left aligned
+    col1, col2 = st.columns([1, 2])
+
+    with col1:
+        st.markdown("### ☕ Support")
+
+        # Display QR code if it exists
+        qr_code_path = os.path.join(os.path.dirname(__file__), "assets", "buymeacoffee_qr.png")
+        if os.path.exists(qr_code_path):
+            st.image(qr_code_path, width=200)
+
+        # Buy Me a Coffee button with styled emoji
+        buymeacoffee_username = os.getenv("BUYMEACOFFEE_USERNAME", "yourusername")
+        st.markdown(f"""
+            <a href="https://www.buymeacoffee.com/{buymeacoffee_username}" target="_blank">
+                <button style="
+                    background-color: #4285F4;
+                    color: #FFFFFF;
+                    border: none;
+                    padding: 12px 20px;
+                    text-align: center;
+                    font-size: 16px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    border-radius: 8px;
+                    width: 100%;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                ">
+                    <span style="font-size: 24px; filter: brightness(1.2) saturate(1.5);">☕</span> Buy Me a Coffee
+                </button>
+            </a>
+        """, unsafe_allow_html=True)
+
 
 def main():
     st.set_page_config(page_title="Job Search Agent", page_icon="🎯", layout="wide")
@@ -832,6 +867,17 @@ def main():
                             st.write(result)
                 else:
                     st.error(f"❌ Error: {result}")
+
+        st.divider()
+
+        # Buy Me a Coffee support button
+        st.markdown("### ☕ Support This Project")
+        buymeacoffee_username = os.getenv("BUYMEACOFFEE_USERNAME", "yourusername")
+        st.link_button(
+            "☕ Buy Me a Coffee",
+            f"https://www.buymeacoffee.com/{buymeacoffee_username}",
+            use_container_width=True
+        )
 
     # Initialize vector store if empty (to avoid errors on first query)
     try:
