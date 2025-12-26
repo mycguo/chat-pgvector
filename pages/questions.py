@@ -8,6 +8,7 @@ import streamlit as st
 import sys
 from datetime import datetime
 from typing import List
+from difflib import SequenceMatcher
 
 # Add parent directory to path
 sys.path.insert(0, '.')
@@ -15,6 +16,41 @@ sys.path.insert(0, '.')
 from storage.interview_db import InterviewDB
 from storage.auth_utils import is_user_logged_in, logout, render_login_button
 from models.interview_prep import InterviewQuestion
+
+
+def fuzzy_match(query: str, text: str, threshold: float = 0.6) -> bool:
+    """
+    Fuzzy string matching using SequenceMatcher.
+
+    Args:
+        query: Search query
+        text: Text to search in
+        threshold: Similarity threshold (0.0 to 1.0)
+
+    Returns:
+        True if similarity is above threshold
+    """
+    if not query or not text:
+        return False
+
+    query_lower = query.lower()
+    text_lower = text.lower()
+
+    # Direct substring match (highest priority)
+    if query_lower in text_lower:
+        return True
+
+    # Fuzzy match on words
+    query_words = query_lower.split()
+    text_words = text_lower.split()
+
+    for q_word in query_words:
+        for t_word in text_words:
+            similarity = SequenceMatcher(None, q_word, t_word).ratio()
+            if similarity >= threshold:
+                return True
+
+    return False
 
 
 def show_question_list_item(question: InterviewQuestion, is_selected: bool = False):
@@ -304,9 +340,9 @@ def main():
 
     # Search box at the top
     search_query = st.text_input(
-        "🔍 Search questions",
-        placeholder="Search by question text, tags, or notes...",
-        help="Search in question text, tags, and notes"
+        "🔍 Semantic Search",
+        placeholder='Try: "find hard python data structure questions"',
+        help="Fuzzy search across questions, answers, tags, and notes. Works with typos and partial matches!"
     )
 
     st.divider()
@@ -346,15 +382,15 @@ def main():
             (datetime.now() - datetime.fromisoformat(q.last_practiced)).days > 7
         ]
 
-    # Search filter
+    # Search filter with fuzzy matching
     if search_query:
-        search_lower = search_query.lower()
         filtered_questions = [
             q for q in filtered_questions
-            if search_lower in q.question.lower() or
-               search_lower in q.notes.lower() or
-               any(search_lower in tag.lower() for tag in q.tags) or
-               search_lower in q.category.lower()
+            if fuzzy_match(search_query, q.question, threshold=0.6) or
+               fuzzy_match(search_query, q.notes, threshold=0.6) or
+               fuzzy_match(search_query, q.category, threshold=0.7) or
+               any(fuzzy_match(search_query, tag, threshold=0.7) for tag in q.tags) or
+               (q.answer_full and fuzzy_match(search_query, q.answer_full, threshold=0.5))
         ]
 
     # Apply sorting
