@@ -86,56 +86,7 @@ def show_company_detail(db: JobSearchDB, company_id: str):
     """Show detailed company view"""
     company_dict = db.get_company(company_id)
     if not company_dict:
-        st.error(f"Company not found (ID: {company_id})")
-
-        # Debug: Show what user_id we're using
-        from storage.user_utils import get_user_id
-        current_user = get_user_id()
-        st.warning(f"Debug: Looking for company with user_id: {current_user}")
-
-        # Debug: Check if company exists under different user_id
-        try:
-            from storage.pg_connection import get_connection
-            with get_connection() as conn:
-                cursor = conn.cursor()
-                # Query the vector_documents table directly
-                cursor.execute(
-                    """
-                    SELECT user_id, metadata
-                    FROM vector_documents
-                    WHERE collection_name = 'companies'
-                    AND metadata->>'record_id' = %s
-                    LIMIT 1
-                    """,
-                    (company_id,)
-                )
-                result = cursor.fetchone()
-                if result:
-                    stored_user_id, metadata = result
-                    st.warning(f"Found company in DB but with different user_id: {stored_user_id}")
-                    st.info("💡 This is a data migration issue. The company was saved with a different user ID.")
-
-                    # Show migration button
-                    if st.button("🔧 Fix this company (update user_id)"):
-                        with get_connection() as conn2:
-                            cursor2 = conn2.cursor()
-                            cursor2.execute(
-                                """
-                                UPDATE vector_documents
-                                SET user_id = %s
-                                WHERE collection_name = 'companies'
-                                AND metadata->>'record_id' = %s
-                                """,
-                                (current_user, company_id)
-                            )
-                            conn2.commit()
-                        st.success("✅ Company user_id updated! Refresh the page.")
-                        st.rerun()
-                else:
-                    st.warning("Company ID not found in database at all")
-        except Exception as e:
-            st.error(f"Debug error: {e}")
-
+        st.error("Company not found")
         if st.button("← Back to Companies"):
             del st.session_state['view_company_id']
             st.rerun()
@@ -433,76 +384,31 @@ def show_add_edit_form(db: JobSearchDB, company_id: str = None):
                     st.rerun()
                 else:
                     # Create new company
-                    try:
-                        from storage.user_utils import get_user_id
-                        current_user = get_user_id()
+                    new_company = create_company(
+                        name=name,
+                        status=status,
+                        website=website,
+                        industry=industry,
+                        size=size,
+                        location=location,
+                        description=description,
+                        priority=priority
+                    )
+                    new_company.culture_notes = culture_notes
+                    new_company.tech_stack = tech_stack
+                    new_company.pros = pros
+                    new_company.cons = cons
+                    new_company.contacts = contacts
+                    new_company.tags = tags
+                    new_company.notes = notes
 
-                        # Log to Python console (visible in Streamlit Cloud logs)
-                        import sys
-                        print(f"[COMPANY ADD] Starting to add company: {name}", file=sys.stderr)
-                        print(f"[COMPANY ADD] Current user_id: {current_user}", file=sys.stderr)
-
-                        new_company = create_company(
-                            name=name,
-                            status=status,
-                            website=website,
-                            industry=industry,
-                            size=size,
-                            location=location,
-                            description=description,
-                            priority=priority
-                        )
-                        new_company.culture_notes = culture_notes
-                        new_company.tech_stack = tech_stack
-                        new_company.pros = pros
-                        new_company.cons = cons
-                        new_company.contacts = contacts
-                        new_company.tags = tags
-                        new_company.notes = notes
-
-                        print(f"[COMPANY ADD] Generated company ID: {new_company.id}", file=sys.stderr)
-                        print(f"[COMPANY ADD] Calling db.add_company()...", file=sys.stderr)
-
-                        company_id = db.add_company(new_company.to_dict())
-
-                        print(f"[COMPANY ADD] db.add_company() returned: {company_id}", file=sys.stderr)
-
-                        # Verify it was saved
-                        from storage.pg_connection import get_connection
-                        with get_connection() as conn:
-                            cursor = conn.cursor()
-                            cursor.execute(
-                                """
-                                SELECT COUNT(*)
-                                FROM vector_documents
-                                WHERE collection_name = 'companies'
-                                AND metadata->>'record_id' = %s
-                                """,
-                                (company_id,)
-                            )
-                            count = cursor.fetchone()[0]
-                            print(f"[COMPANY ADD] Verification query returned: {count} records", file=sys.stderr)
-
-                        # Store debug info in session state
-                        st.session_state['company_add_debug'] = {
-                            'company_id': company_id,
-                            'user_id': current_user,
-                            'records_saved': count,
-                            'name': name
-                        }
-
-                        # Clear add mode
-                        if 'add_company_mode' in st.session_state:
-                            del st.session_state['add_company_mode']
-
-                        st.rerun()
-
-                    except Exception as e:
-                        print(f"[COMPANY ADD ERROR] {e}", file=sys.stderr)
-                        import traceback
-                        traceback.print_exc(file=sys.stderr)
-                        st.error(f"❌ Error adding company: {e}")
-                        st.code(traceback.format_exc())
+                    company_id = db.add_company(new_company.to_dict())
+                    st.success(f"✅ Added {name}")
+                    # Clear add mode and show detail view
+                    if 'add_company_mode' in st.session_state:
+                        del st.session_state['add_company_mode']
+                    st.session_state['view_company_id'] = company_id
+                    st.rerun()
 
 
 def main():
@@ -533,30 +439,6 @@ def main():
     # Main companies list view
     st.title("🏢 Companies")
     st.markdown("Track companies you've applied to and companies you want to target")
-
-    # Show debug info if company was just added
-    if 'company_add_debug' in st.session_state:
-        debug = st.session_state['company_add_debug']
-        st.success(f"✅ Added {debug['name']}")
-        st.info("**Debug Info:**")
-        st.code(f"""
-Company ID: {debug['company_id']}
-User ID: {debug['user_id']}
-Records saved: {debug['records_saved']}
-        """)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("👁️ View This Company", type="primary"):
-                st.session_state['view_company_id'] = debug['company_id']
-                del st.session_state['company_add_debug']
-                st.rerun()
-        with col2:
-            if st.button("Clear Debug Info"):
-                del st.session_state['company_add_debug']
-                st.rerun()
-
-        st.divider()
 
     # Get all companies
     companies = db.get_companies()

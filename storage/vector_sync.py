@@ -427,11 +427,7 @@ def sync_company_to_vector_store(company: Dict, user_id: Optional[str] = None) -
     Returns:
         True if successful, False otherwise
     """
-    import sys
-    import traceback
-
     if not HAS_VECTOR_STORE:
-        print("[COMPANY SYNC] Error: Vector store not available", file=sys.stderr)
         return False
 
     try:
@@ -441,20 +437,13 @@ def sync_company_to_vector_store(company: Dict, user_id: Optional[str] = None) -
             except:
                 user_id = "default_user"
 
-        print(f"[COMPANY SYNC] Starting sync for company: {company.get('name')}", file=sys.stderr)
-        print(f"[COMPANY SYNC] User ID: {user_id}", file=sys.stderr)
-
         vector_store = PgVectorStore(collection_name="companies", user_id=user_id)
 
         text = format_company_text(company)
-        print(f"[COMPANY SYNC] Formatted text length: {len(text)}", file=sys.stderr)
-
         if not text:
-            print("[COMPANY SYNC] Error: No text generated from company data", file=sys.stderr)
             return False
 
         company_id = company.get('id', company.get('name', 'unknown'))
-        print(f"[COMPANY SYNC] Company ID: {company_id}", file=sys.stderr)
 
         # Store full structured data in metadata
         metadata = {
@@ -470,19 +459,14 @@ def sync_company_to_vector_store(company: Dict, user_id: Optional[str] = None) -
             'timestamp': datetime.now().isoformat(),
         }
 
-        print(f"[COMPANY SYNC] Deleting old entries...", file=sys.stderr)
         # Delete old entry if exists (by record_id)
         _delete_by_metadata(vector_store, {'record_id': company_id, 'record_type': 'company'})
 
-        print(f"[COMPANY SYNC] Adding new entry to vector store...", file=sys.stderr)
         # Add new entry
         vector_store.add_texts([text], metadatas=[metadata])
-
-        print(f"[COMPANY SYNC] Successfully synced company {company_id}", file=sys.stderr)
         return True
     except Exception as e:
-        print(f"[COMPANY SYNC ERROR] {e}", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
+        print(f"Error syncing company to vector store: {e}")
         return False
 
 
