@@ -483,27 +483,19 @@ def show_add_edit_form(db: JobSearchDB, company_id: str = None):
                             count = cursor.fetchone()[0]
                             print(f"[COMPANY ADD] Verification query returned: {count} records", file=sys.stderr)
 
-                        st.success(f"✅ Added {name}")
-                        st.info(f"**Debug Info:**")
-                        st.code(f"""
-Company ID: {company_id}
-User ID: {current_user}
-Records saved: {count}
-                        """)
+                        # Store debug info in session state
+                        st.session_state['company_add_debug'] = {
+                            'company_id': company_id,
+                            'user_id': current_user,
+                            'records_saved': count,
+                            'name': name
+                        }
 
-                        st.warning("**Don't click anything yet!** Check the info above, then click 'View Company' below.")
+                        # Clear add mode
+                        if 'add_company_mode' in st.session_state:
+                            del st.session_state['add_company_mode']
 
-                        # Don't auto-redirect - let user see the debug info
-                        if st.button("👁️ View Company", type="primary"):
-                            if 'add_company_mode' in st.session_state:
-                                del st.session_state['add_company_mode']
-                            st.session_state['view_company_id'] = company_id
-                            st.rerun()
-
-                        if st.button("← Back to List"):
-                            if 'add_company_mode' in st.session_state:
-                                del st.session_state['add_company_mode']
-                            st.rerun()
+                        st.rerun()
 
                     except Exception as e:
                         print(f"[COMPANY ADD ERROR] {e}", file=sys.stderr)
@@ -541,6 +533,30 @@ def main():
     # Main companies list view
     st.title("🏢 Companies")
     st.markdown("Track companies you've applied to and companies you want to target")
+
+    # Show debug info if company was just added
+    if 'company_add_debug' in st.session_state:
+        debug = st.session_state['company_add_debug']
+        st.success(f"✅ Added {debug['name']}")
+        st.info("**Debug Info:**")
+        st.code(f"""
+Company ID: {debug['company_id']}
+User ID: {debug['user_id']}
+Records saved: {debug['records_saved']}
+        """)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("👁️ View This Company", type="primary"):
+                st.session_state['view_company_id'] = debug['company_id']
+                del st.session_state['company_add_debug']
+                st.rerun()
+        with col2:
+            if st.button("Clear Debug Info"):
+                del st.session_state['company_add_debug']
+                st.rerun()
+
+        st.divider()
 
     # Get all companies
     companies = db.get_companies()
