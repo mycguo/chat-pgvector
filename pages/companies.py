@@ -86,7 +86,34 @@ def show_company_detail(db: JobSearchDB, company_id: str):
     """Show detailed company view"""
     company_dict = db.get_company(company_id)
     if not company_dict:
-        st.error("Company not found")
+        st.error(f"Company not found (ID: {company_id})")
+
+        # Debug: Show what user_id we're using
+        from storage.user_utils import get_user_id
+        st.warning(f"Debug: Looking for company with user_id: {get_user_id()}")
+
+        # Debug: Check if company exists under different user_id
+        try:
+            from storage.pg_vector_store import PgVectorStore
+            raw_store = PgVectorStore(collection_name="companies")
+            # Try to get by ID without user filter
+            conn = raw_store._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT metadata FROM langchain_pg_embedding WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s) AND cmetadata->>'record_id' = %s LIMIT 1",
+                (raw_store._get_collection_name(), company_id)
+            )
+            result = cursor.fetchone()
+            if result:
+                metadata = result[0]
+                stored_user_id = metadata.get('user_id', 'N/A')
+                st.warning(f"Found company in DB but with different user_id: {stored_user_id}")
+                st.info("💡 This is a data migration issue. The company was saved with a different user ID.")
+            else:
+                st.warning("Company ID not found in database at all")
+        except Exception as e:
+            st.error(f"Debug error: {e}")
+
         if st.button("← Back to Companies"):
             del st.session_state['view_company_id']
             st.rerun()
