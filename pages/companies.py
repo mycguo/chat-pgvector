@@ -437,6 +437,11 @@ def show_add_edit_form(db: JobSearchDB, company_id: str = None):
                         from storage.user_utils import get_user_id
                         current_user = get_user_id()
 
+                        # Log to Python console (visible in Streamlit Cloud logs)
+                        import sys
+                        print(f"[COMPANY ADD] Starting to add company: {name}", file=sys.stderr)
+                        print(f"[COMPANY ADD] Current user_id: {current_user}", file=sys.stderr)
+
                         new_company = create_company(
                             name=name,
                             status=status,
@@ -455,10 +460,12 @@ def show_add_edit_form(db: JobSearchDB, company_id: str = None):
                         new_company.tags = tags
                         new_company.notes = notes
 
-                        st.info(f"Debug: Saving company with user_id: {current_user}")
-                        st.info(f"Debug: Company ID: {new_company.id}")
+                        print(f"[COMPANY ADD] Generated company ID: {new_company.id}", file=sys.stderr)
+                        print(f"[COMPANY ADD] Calling db.add_company()...", file=sys.stderr)
 
                         company_id = db.add_company(new_company.to_dict())
+
+                        print(f"[COMPANY ADD] db.add_company() returned: {company_id}", file=sys.stderr)
 
                         # Verify it was saved
                         from storage.pg_connection import get_connection
@@ -474,17 +481,35 @@ def show_add_edit_form(db: JobSearchDB, company_id: str = None):
                                 (company_id,)
                             )
                             count = cursor.fetchone()[0]
-                            st.info(f"Debug: Verified {count} records saved for company_id {company_id}")
+                            print(f"[COMPANY ADD] Verification query returned: {count} records", file=sys.stderr)
 
-                        st.success(f"✅ Added {name} (ID: {company_id})")
-                        # Clear add mode and show detail view
-                        if 'add_company_mode' in st.session_state:
-                            del st.session_state['add_company_mode']
-                        st.session_state['view_company_id'] = company_id
-                        st.rerun()
+                        st.success(f"✅ Added {name}")
+                        st.info(f"**Debug Info:**")
+                        st.code(f"""
+Company ID: {company_id}
+User ID: {current_user}
+Records saved: {count}
+                        """)
+
+                        st.warning("**Don't click anything yet!** Check the info above, then click 'View Company' below.")
+
+                        # Don't auto-redirect - let user see the debug info
+                        if st.button("👁️ View Company", type="primary"):
+                            if 'add_company_mode' in st.session_state:
+                                del st.session_state['add_company_mode']
+                            st.session_state['view_company_id'] = company_id
+                            st.rerun()
+
+                        if st.button("← Back to List"):
+                            if 'add_company_mode' in st.session_state:
+                                del st.session_state['add_company_mode']
+                            st.rerun()
+
                     except Exception as e:
-                        st.error(f"❌ Error adding company: {e}")
+                        print(f"[COMPANY ADD ERROR] {e}", file=sys.stderr)
                         import traceback
+                        traceback.print_exc(file=sys.stderr)
+                        st.error(f"❌ Error adding company: {e}")
                         st.code(traceback.format_exc())
 
 
