@@ -763,6 +763,10 @@ def login_screen():
 def main():
     st.set_page_config(page_title="Applications", page_icon="📝", layout="wide")
 
+    # Apply Google blue to all primary buttons
+    from components.styles import apply_google_button_style
+    apply_google_button_style()
+
     if not is_user_logged_in():
         login_screen()
         return
