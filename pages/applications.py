@@ -799,11 +799,6 @@ def main():
         # Filters
         st.header("🔍 Filters")
 
-        status_filter = st.selectbox(
-            "Status",
-            ["All", "Applied", "Screening", "Interview", "Offer", "Accepted", "Rejected", "Withdrawn"]
-        )
-
         company_search = st.text_input("Search Company", placeholder="e.g., Google")
 
         sort_by = st.selectbox(
@@ -962,29 +957,15 @@ def main():
     # List applications
     st.header("📋 Your Applications")
 
-    # Apply filters
-    status_map = {
-        "All": None,
-        "Applied": "applied",
-        "Screening": "screening",
-        "Interview": "interview",
-        "Offer": "offer",
-        "Accepted": "accepted",
-        "Rejected": "rejected",
-        "Withdrawn": "withdrawn"
-    }
-
-    filtered_status = status_map.get(status_filter)
-
-    # Get applications
-    applications = db.list_applications(status=filtered_status)
+    # Get all applications
+    applications = db.list_applications()
 
     # Apply company search
     if company_search:
         applications = [app for app in applications
                        if company_search.lower() in app.company.lower()]
 
-    # Apply sorting
+    # Apply sorting (within each status column)
     if "Newest" in sort_by:
         applications = sorted(applications, key=lambda x: x.applied_date, reverse=True)
     elif "Oldest" in sort_by:
@@ -994,22 +975,113 @@ def main():
     elif "Z-A" in sort_by:
         applications = sorted(applications, key=lambda x: x.company.lower(), reverse=True)
 
-    # Split applications into active and archived
-    active_applications = [app for app in applications if app.status not in ["rejected", "withdrawn"]]
+    # Split applications by status for Kanban view
+    active_applications = [app for app in applications if app.status not in ["rejected", "withdrawn", "accepted"]]
+    accepted_applications = [app for app in applications if app.status == "accepted"]
     archived_applications = [app for app in applications if app.status in ["rejected", "withdrawn"]]
 
-    # Display active applications
-    st.write(f"**Showing {len(active_applications)} active application(s)**")
+    # Group active applications by status
+    applied_apps = [app for app in active_applications if app.status == "applied"]
+    screening_apps = [app for app in active_applications if app.status == "screening"]
+    interview_apps = [app for app in active_applications if app.status == "interview"]
+    offer_apps = [app for app in active_applications if app.status == "offer"]
 
+    # Kanban board style layout
     if len(active_applications) == 0:
-        if len(archived_applications) > 0:
-            st.info("🎯 No active applications. Check the Archived Jobs section below.")
+        if len(accepted_applications) > 0:
+            st.success(f"🎉 You have {len(accepted_applications)} accepted offer(s)! Check below.")
         else:
             st.info("🎯 No applications yet. Add your first one above!")
     else:
-        # Display active applications
-        for app in active_applications:
-            show_application_card(app, db)
+        # Create 4 columns for Kanban board
+        col1, col2, col3, col4 = st.columns(4)
+
+        # Applied Column
+        with col1:
+            st.markdown(f"### 📩 Applied")
+            st.markdown(f"<p style='color: #666; font-size: 14px;'>{len(applied_apps)} application(s)</p>", unsafe_allow_html=True)
+            st.markdown("---")
+
+            for app in applied_apps:
+                with st.container():
+                    st.markdown(f"""
+                        <div style='background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #4285F4;'>
+                            <p style='margin: 0; font-weight: 600; font-size: 16px;'>{app.company}</p>
+                            <p style='margin: 5px 0; color: #666; font-size: 14px;'>{app.role}</p>
+                            <p style='margin: 8px 0 0 0; color: #999; font-size: 12px;'>📅 {app.applied_date}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    if st.button("View Details", key=f"view_applied_{app.id}", use_container_width=True):
+                        st.session_state['view_application_id'] = app.id
+                        st.rerun()
+
+        # Screening Column
+        with col2:
+            st.markdown(f"### 📧 Screening")
+            st.markdown(f"<p style='color: #666; font-size: 14px;'>{len(screening_apps)} application(s)</p>", unsafe_allow_html=True)
+            st.markdown("---")
+
+            for app in screening_apps:
+                with st.container():
+                    st.markdown(f"""
+                        <div style='background-color: #fff8e6; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #FFA500;'>
+                            <p style='margin: 0; font-weight: 600; font-size: 16px;'>{app.company}</p>
+                            <p style='margin: 5px 0; color: #666; font-size: 14px;'>{app.role}</p>
+                            <p style='margin: 8px 0 0 0; color: #999; font-size: 12px;'>📅 {app.applied_date}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    if st.button("View Details", key=f"view_screening_{app.id}", use_container_width=True):
+                        st.session_state['view_application_id'] = app.id
+                        st.rerun()
+
+        # Interview Column
+        with col3:
+            st.markdown(f"### 🎤 Interview")
+            st.markdown(f"<p style='color: #666; font-size: 14px;'>{len(interview_apps)} application(s)</p>", unsafe_allow_html=True)
+            st.markdown("---")
+
+            for app in interview_apps:
+                with st.container():
+                    st.markdown(f"""
+                        <div style='background-color: #e8f4fd; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #00BFFF;'>
+                            <p style='margin: 0; font-weight: 600; font-size: 16px;'>{app.company}</p>
+                            <p style='margin: 5px 0; color: #666; font-size: 14px;'>{app.role}</p>
+                            <p style='margin: 8px 0 0 0; color: #999; font-size: 12px;'>📅 {app.applied_date}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    if st.button("View Details", key=f"view_interview_{app.id}", use_container_width=True):
+                        st.session_state['view_application_id'] = app.id
+                        st.rerun()
+
+        # Offer Column
+        with col4:
+            st.markdown(f"### 🎁 Offer")
+            st.markdown(f"<p style='color: #666; font-size: 14px;'>{len(offer_apps)} application(s)</p>", unsafe_allow_html=True)
+            st.markdown("---")
+
+            for app in offer_apps:
+                with st.container():
+                    st.markdown(f"""
+                        <div style='background-color: #e8f8e8; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #28a745;'>
+                            <p style='margin: 0; font-weight: 600; font-size: 16px;'>{app.company}</p>
+                            <p style='margin: 5px 0; color: #666; font-size: 14px;'>{app.role}</p>
+                            <p style='margin: 8px 0 0 0; color: #999; font-size: 12px;'>📅 {app.applied_date}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    if st.button("View Details", key=f"view_offer_{app.id}", use_container_width=True):
+                        st.session_state['view_application_id'] = app.id
+                        st.rerun()
+
+    # Display accepted offers
+    if len(accepted_applications) > 0:
+        st.divider()
+        with st.expander(f"🎉 Accepted Offers ({len(accepted_applications)})", expanded=False):
+            for app in accepted_applications:
+                show_application_card(app, db)
 
     # Display archived applications in a separate section
     if len(archived_applications) > 0:
