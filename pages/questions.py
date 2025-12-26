@@ -331,13 +331,6 @@ def main():
         if st.button("🔄 Clear Filters", key="clear_filters_sidebar", width="stretch"):
             st.rerun()
 
-    # Two-column layout: Questions list (left) and Detail (right)
-    left_col, right_col = st.columns([1, 2])
-
-    # Initialize selected question in session state
-    if 'selected_question_id' not in st.session_state and all_questions:
-        st.session_state['selected_question_id'] = all_questions[0].id
-
     # Search box at the top
     search_query = st.text_input(
         "🔍 Semantic Search",
@@ -346,6 +339,13 @@ def main():
     )
 
     st.divider()
+
+    # Initialize selected question in session state
+    if 'selected_question_id' not in st.session_state and all_questions:
+        st.session_state['selected_question_id'] = all_questions[0].id
+
+    # Two-column layout: Questions list (left) and Detail (right)
+    left_col, right_col = st.columns([1, 2])
 
     # Apply filters
     filtered_questions = all_questions.copy()
