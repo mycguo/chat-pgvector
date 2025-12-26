@@ -418,21 +418,6 @@ def main():
         login_screen()
         return
 
-    # DEBUG: Show current user ID
-    from storage.user_utils import get_user_id
-    current_user_id = get_user_id()
-    with st.expander("🔍 Debug Info (click to expand)", expanded=False):
-        st.code(f"Current User ID: {current_user_id}")
-        if 'cached_user_id' in st.session_state:
-            st.code(f"Cached User ID: {st.session_state['cached_user_id']}")
-        try:
-            if hasattr(st, 'user'):
-                st.code(f"st.user.email: {getattr(st.user, 'email', 'N/A')}")
-                st.code(f"st.user.name: {getattr(st.user, 'name', 'N/A')}")
-                st.code(f"st.user.id: {getattr(st.user, 'id', 'N/A')}")
-        except:
-            st.code("st.user not available")
-
     # Initialize database
     db = JobSearchDB()
 
@@ -457,31 +442,6 @@ def main():
 
     # Get all companies
     companies = db.get_companies()
-
-    # DEBUG: Show database info
-    with st.expander("🔍 Database Debug (click to expand)", expanded=False):
-        st.code(f"Total companies found: {len(companies)}")
-        if companies:
-            st.write("**Sample company data:**")
-            st.json(companies[0] if companies else {})
-
-        # Try to check what's in the raw database
-        try:
-            from storage.pg_vector_store import PgVectorStore
-            raw_store = PgVectorStore(collection_name="companies", user_id=None)
-            # Get all companies without user filter
-            all_companies = raw_store.list_records(record_type='company', limit=1000, user_id=None)
-            st.code(f"Total companies in DB (all users): {len(all_companies)}")
-            if all_companies:
-                st.write("**All companies (first 5):**")
-                for i, comp in enumerate(all_companies[:5]):
-                    st.json({
-                        "name": comp.get('name'),
-                        "id": comp.get('id'),
-                        "user_id_stored": comp.get('user_id', 'N/A')
-                    })
-        except Exception as e:
-            st.code(f"Error checking raw DB: {e}")
 
     # Top actions
     col1, col2, col3 = st.columns([2, 1, 1])
