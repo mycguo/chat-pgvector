@@ -17,60 +17,143 @@ from storage.auth_utils import is_user_logged_in, logout, render_login_button
 from models.interview_prep import InterviewQuestion
 
 
-def show_question_card(question: InterviewQuestion, db: InterviewDB):
-    """Display a question as a card"""
-    with st.container():
-        col1, col2, col3, col4, col5 = st.columns([4, 2, 2, 1, 1])
+def show_question_list_item(question: InterviewQuestion, is_selected: bool = False):
+    """Display a compact question list item with card design"""
+    # Determine styling based on selection
+    border_color = "#4285F4" if is_selected else "#e0e0e0"
+    bg_color = "#f0f7ff" if is_selected else "#ffffff"
 
-        with col1:
-            st.markdown(f"**{question.question}**")
+    # Difficulty badge colors
+    difficulty_colors = {
+        "easy": "#28a745",
+        "medium": "#FFA500",
+        "hard": "#dc3545"
+    }
+    difficulty_color = difficulty_colors.get(question.difficulty, "#666")
 
-            # Badges
-            badges = []
-            badges.append(question.get_display_type())
-            badges.append(f"{question.get_difficulty_emoji()} {question.difficulty.title()}")
-            badges.append(f"📁 {question.category.title()}")
+    # Type badge colors
+    type_colors = {
+        "behavioral": "#9c27b0",
+        "technical": "#2196f3",
+        "system_design": "#ff9800",
+        "case_study": "#00bcd4"
+    }
+    type_color = type_colors.get(question.type, "#666")
 
-            st.caption(" • ".join(badges))
+    clicked = st.button(
+        "",
+        key=f"select_{question.id}",
+        use_container_width=True,
+        label_visibility="collapsed"
+    )
 
-            # Tags
-            if question.tags:
-                tag_text = " ".join([f"`{tag}`" for tag in question.tags[:3]])
-                st.caption(f"🏷️ {tag_text}")
+    # Display card content (this renders above the button due to Streamlit's layout)
+    st.markdown(f"""
+        <div style='
+            background-color: {bg_color};
+            padding: 14px;
+            border-radius: 6px;
+            margin: -50px 0 8px 0;
+            border-left: 3px solid {border_color};
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: pointer;
+            pointer-events: none;
+        '>
+            <p style='margin: 0 0 8px 0; font-weight: 500; font-size: 14px; color: #222; line-height: 1.4;'>{question.question}</p>
+            <div style='display: flex; gap: 6px; align-items: center; flex-wrap: wrap;'>
+                <span style='background-color: {type_color}22; color: {type_color}; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;'>{question.get_display_type()}</span>
+                <span style='background-color: {difficulty_color}22; color: {difficulty_color}; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;'>{question.difficulty.title()}</span>
+                <span style='color: #666; font-size: 12px; margin-left: 4px;'>{question.importance}/10</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-        with col2:
-            st.write(f"**Importance:** {question.get_importance_emoji()} {question.importance}/10")
-            if question.practice_count > 0:
-                st.caption(f"✅ Practiced {question.practice_count}x")
+    return clicked
+
+
+def show_question_detail_panel(question: InterviewQuestion, db: InterviewDB):
+    """Display question detail in right panel with STAR method format"""
+    st.markdown(f"## {question.question}")
+
+    # Question metadata
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.caption(f"**Type:** {question.get_display_type()}")
+    with col2:
+        st.caption(f"**Difficulty:** {question.difficulty.title()}")
+    with col3:
+        st.caption(f"**Importance:** {question.importance}/10")
+
+    st.divider()
+
+    # Display answer in STAR format if behavioral
+    if question.type == "behavioral" and question.answer_star:
+        st.markdown("### 📝 Answer (STAR Method)")
+
+        if question.answer_star.get('situation'):
+            st.markdown("**💼 Situation:**")
+            st.write(question.answer_star['situation'])
+            st.write("")
+
+        if question.answer_star.get('task'):
+            st.markdown("**🎯 Task:**")
+            st.write(question.answer_star['task'])
+            st.write("")
+
+        if question.answer_star.get('action'):
+            st.markdown("**⚡ Action:**")
+            # Check if action is a list or string
+            if isinstance(question.answer_star['action'], list):
+                for action_item in question.answer_star['action']:
+                    st.markdown(f"• {action_item}")
             else:
-                st.caption("⚠️ Not practiced yet")
+                st.write(question.answer_star['action'])
+            st.write("")
 
-        with col3:
-            if question.last_practiced:
-                days_ago = (datetime.now() - datetime.fromisoformat(question.last_practiced)).days
-                if days_ago == 0:
-                    st.caption("🕐 Today")
-                elif days_ago == 1:
-                    st.caption("🕐 Yesterday")
-                else:
-                    st.caption(f"🕐 {days_ago}d ago")
+        if question.answer_star.get('result'):
+            st.markdown("**🎉 Result:**")
+            # Check if result is a list or string
+            if isinstance(question.answer_star['result'], list):
+                for result_item in question.answer_star['result']:
+                    st.markdown(f"• {result_item}")
             else:
-                st.caption("🕐 Never")
+                st.write(question.answer_star['result'])
 
-        with col4:
-            if st.button("🎓 Practice", key=f"practice_{question.id}", width="stretch"):
-                # Mark as practiced
-                question.mark_practiced()
-                db.update_question(question)
-                st.success("✅ Marked as practiced!")
-                st.rerun()
+    elif question.answer_full:
+        st.markdown("### 📝 Answer")
+        st.write(question.answer_full)
 
-        with col5:
-            if st.button("View", key=f"view_{question.id}", width="stretch"):
-                st.session_state['view_question_id'] = question.id
-                st.rerun()
-
+    # Notes section
+    if question.notes:
         st.divider()
+        st.markdown("### 📌 Notes")
+        st.info(question.notes)
+
+    # Practice info
+    st.divider()
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Practice Count", question.practice_count)
+    with col2:
+        if question.last_practiced:
+            days_ago = (datetime.now() - datetime.fromisoformat(question.last_practiced)).days
+            st.metric("Last Practiced", f"{days_ago} days ago")
+        else:
+            st.metric("Last Practiced", "Never")
+
+    # Action buttons
+    st.divider()
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🎓 Mark as Practiced", type="primary", use_container_width=True):
+            question.mark_practiced()
+            db.update_question(question)
+            st.success("✅ Marked as practiced!")
+            st.rerun()
+    with col2:
+        if st.button("✏️ Edit Question", use_container_width=True):
+            st.session_state['edit_question_id'] = question.id
+            st.rerun()
 
 
 def get_unique_values(questions: List[InterviewQuestion], field: str) -> List[str]:
@@ -213,25 +296,19 @@ def main():
         if st.button("🔄 Clear Filters", key="clear_filters_sidebar", width="stretch"):
             st.rerun()
 
-    # Main content area
-    col1, col2 = st.columns([3, 1])
+    # Two-column layout: Questions list (left) and Detail (right)
+    left_col, right_col = st.columns([1, 2])
 
-    with col1:
-        # Search box
-        search_query = st.text_input(
-            "🔍 Search questions",
-            placeholder="Search by question text, tags, or notes...",
-            help="Search in question text, tags, and notes"
-        )
+    # Initialize selected question in session state
+    if 'selected_question_id' not in st.session_state and all_questions:
+        st.session_state['selected_question_id'] = all_questions[0].id
 
-    with col2:
-        # View options
-        view_mode = st.radio(
-            "View",
-            ["Cards", "Compact"],
-            horizontal=True,
-            label_visibility="collapsed"
-        )
+    # Search box at the top
+    search_query = st.text_input(
+        "🔍 Search questions",
+        placeholder="Search by question text, tags, or notes...",
+        help="Search in question text, tags, and notes"
+    )
 
     st.divider()
 
@@ -309,46 +386,37 @@ def main():
     elif sort_by == "Question (Z-A)":
         filtered_questions.sort(key=lambda x: x.question.lower(), reverse=True)
 
-    # Display results
-    st.write(f"**Showing {len(filtered_questions)} of {len(all_questions)} questions**")
+    # LEFT PANEL: Question List
+    with left_col:
+        st.markdown(f"### Interview Question Bank")
+        st.caption(f"Showing {len(filtered_questions)} of {len(all_questions)} questions")
+        st.markdown("---")
 
-    if len(filtered_questions) == 0:
-        st.info("🔍 No questions found. Try adjusting your filters or add new questions!")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("➕ Add Question", key="add_question_empty", type="primary", width="stretch"):
-                st.switch_page("pages/interview_prep.py")
-        with col2:
-            if st.button("🔄 Clear Filters", key="clear_filters_empty", width="stretch"):
+        if len(filtered_questions) == 0:
+            st.info("🔍 No questions found. Try adjusting your filters!")
+            if st.button("🔄 Clear Filters", key="clear_filters_panel", use_container_width=True):
                 st.rerun()
-    else:
-        # Display questions based on view mode
-        if view_mode == "Cards":
-            for question in filtered_questions:
-                show_question_card(question, db)
         else:
-            # Compact view
+            # Display question list
             for question in filtered_questions:
-                col1, col2, col3, col4 = st.columns([5, 2, 2, 1])
+                is_selected = st.session_state.get('selected_question_id') == question.id
+                if show_question_list_item(question, is_selected):
+                    st.session_state['selected_question_id'] = question.id
+                    st.rerun()
 
-                with col1:
-                    st.markdown(f"**{question.question[:80]}{'...' if len(question.question) > 80 else ''}**")
-                    badges = f"{question.get_display_type()} • {question.get_difficulty_emoji()} • {question.category.title()}"
-                    st.caption(badges)
-
-                with col2:
-                    st.caption(f"Importance: {question.get_importance_emoji()} {question.importance}/10")
-
-                with col3:
-                    st.caption(f"Practiced: {question.practice_count}x")
-
-                with col4:
-                    if st.button("View", key=f"compact_view_{question.id}"):
-                        st.session_state['view_question_id'] = question.id
-                        st.rerun()
-
-                st.divider()
+    # RIGHT PANEL: Question Detail
+    with right_col:
+        if st.session_state.get('selected_question_id'):
+            selected_question = next(
+                (q for q in all_questions if q.id == st.session_state['selected_question_id']),
+                None
+            )
+            if selected_question:
+                show_question_detail_panel(selected_question, db)
+            else:
+                st.info("Select a question from the list to view details")
+        else:
+            st.info("Select a question from the list to view details")
 
     # Bottom actions
     st.divider()
