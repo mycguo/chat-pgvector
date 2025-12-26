@@ -90,27 +90,49 @@ def show_company_detail(db: JobSearchDB, company_id: str):
 
         # Debug: Show what user_id we're using
         from storage.user_utils import get_user_id
-        st.warning(f"Debug: Looking for company with user_id: {get_user_id()}")
+        current_user = get_user_id()
+        st.warning(f"Debug: Looking for company with user_id: {current_user}")
 
         # Debug: Check if company exists under different user_id
         try:
-            from storage.pg_vector_store import PgVectorStore
-            raw_store = PgVectorStore(collection_name="companies")
-            # Try to get by ID without user filter
-            conn = raw_store._get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT metadata FROM langchain_pg_embedding WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s) AND cmetadata->>'record_id' = %s LIMIT 1",
-                (raw_store._get_collection_name(), company_id)
-            )
-            result = cursor.fetchone()
-            if result:
-                metadata = result[0]
-                stored_user_id = metadata.get('user_id', 'N/A')
-                st.warning(f"Found company in DB but with different user_id: {stored_user_id}")
-                st.info("💡 This is a data migration issue. The company was saved with a different user ID.")
-            else:
-                st.warning("Company ID not found in database at all")
+            from storage.pg_connection import get_connection
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                # Query the vector_documents table directly
+                cursor.execute(
+                    """
+                    SELECT user_id, metadata
+                    FROM vector_documents
+                    WHERE collection_name = 'companies'
+                    AND metadata->>'record_id' = %s
+                    LIMIT 1
+                    """,
+                    (company_id,)
+                )
+                result = cursor.fetchone()
+                if result:
+                    stored_user_id, metadata = result
+                    st.warning(f"Found company in DB but with different user_id: {stored_user_id}")
+                    st.info("💡 This is a data migration issue. The company was saved with a different user ID.")
+
+                    # Show migration button
+                    if st.button("🔧 Fix this company (update user_id)"):
+                        with get_connection() as conn2:
+                            cursor2 = conn2.cursor()
+                            cursor2.execute(
+                                """
+                                UPDATE vector_documents
+                                SET user_id = %s
+                                WHERE collection_name = 'companies'
+                                AND metadata->>'record_id' = %s
+                                """,
+                                (current_user, company_id)
+                            )
+                            conn2.commit()
+                        st.success("✅ Company user_id updated! Refresh the page.")
+                        st.rerun()
+                else:
+                    st.warning("Company ID not found in database at all")
         except Exception as e:
             st.error(f"Debug error: {e}")
 
