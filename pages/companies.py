@@ -414,6 +414,24 @@ def show_add_edit_form(db: JobSearchDB, company_id: str = None):
 def main():
     st.set_page_config(page_title="Companies", page_icon="🏢", layout="wide")
 
+    # Apply Google blue to all primary buttons
+    st.markdown("""
+        <style>
+            .stButton > button[kind="primary"] {
+                background-color: #4285F4 !important;
+                border-color: #4285F4 !important;
+            }
+            .stButton > button[kind="primary"]:hover {
+                background-color: #357ae8 !important;
+                border-color: #357ae8 !important;
+            }
+            .stButton > button[kind="primary"]:active {
+                background-color: #2a66c9 !important;
+                border-color: #2a66c9 !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     if not is_user_logged_in():
         login_screen()
         return
