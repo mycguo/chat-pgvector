@@ -433,31 +433,59 @@ def show_add_edit_form(db: JobSearchDB, company_id: str = None):
                     st.rerun()
                 else:
                     # Create new company
-                    new_company = create_company(
-                        name=name,
-                        status=status,
-                        website=website,
-                        industry=industry,
-                        size=size,
-                        location=location,
-                        description=description,
-                        priority=priority
-                    )
-                    new_company.culture_notes = culture_notes
-                    new_company.tech_stack = tech_stack
-                    new_company.pros = pros
-                    new_company.cons = cons
-                    new_company.contacts = contacts
-                    new_company.tags = tags
-                    new_company.notes = notes
+                    try:
+                        from storage.user_utils import get_user_id
+                        current_user = get_user_id()
 
-                    company_id = db.add_company(new_company.to_dict())
-                    st.success(f"✅ Added {name}")
-                    # Clear add mode and show detail view
-                    if 'add_company_mode' in st.session_state:
-                        del st.session_state['add_company_mode']
-                    st.session_state['view_company_id'] = company_id
-                    st.rerun()
+                        new_company = create_company(
+                            name=name,
+                            status=status,
+                            website=website,
+                            industry=industry,
+                            size=size,
+                            location=location,
+                            description=description,
+                            priority=priority
+                        )
+                        new_company.culture_notes = culture_notes
+                        new_company.tech_stack = tech_stack
+                        new_company.pros = pros
+                        new_company.cons = cons
+                        new_company.contacts = contacts
+                        new_company.tags = tags
+                        new_company.notes = notes
+
+                        st.info(f"Debug: Saving company with user_id: {current_user}")
+                        st.info(f"Debug: Company ID: {new_company.id}")
+
+                        company_id = db.add_company(new_company.to_dict())
+
+                        # Verify it was saved
+                        from storage.pg_connection import get_connection
+                        with get_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute(
+                                """
+                                SELECT COUNT(*)
+                                FROM vector_documents
+                                WHERE collection_name = 'companies'
+                                AND metadata->>'record_id' = %s
+                                """,
+                                (company_id,)
+                            )
+                            count = cursor.fetchone()[0]
+                            st.info(f"Debug: Verified {count} records saved for company_id {company_id}")
+
+                        st.success(f"✅ Added {name} (ID: {company_id})")
+                        # Clear add mode and show detail view
+                        if 'add_company_mode' in st.session_state:
+                            del st.session_state['add_company_mode']
+                        st.session_state['view_company_id'] = company_id
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error adding company: {e}")
+                        import traceback
+                        st.code(traceback.format_exc())
 
 
 def main():
