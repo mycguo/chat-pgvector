@@ -76,32 +76,70 @@ def show_question_list_item(question: InterviewQuestion, is_selected: bool = Fal
     }
     type_color = type_colors.get(question.type, "#666")
 
-    clicked = st.button(
-        " ",
-        key=f"select_{question.id}",
-        use_container_width=True
-    )
+    # Truncate question if too long
+    truncated_question = question.question if len(question.question) <= 80 else question.question[:77] + "..."
 
-    # Display card content (this renders above the button due to Streamlit's layout)
+    # Escape any HTML characters in the question text
+    truncated_question = truncated_question.replace("<", "&lt;").replace(">", "&gt;")
+
+    # Unique ID for this card
+    card_id = f"card_{question.id}"
+
+    # Create button label with badges using Unicode and plain text
+    difficulty_emoji = {"easy": "🟢", "medium": "🟡", "hard": "🔴"}.get(question.difficulty, "⚪")
+    type_emoji = {"behavioral": "💜", "technical": "🔵", "system_design": "🟠", "case_study": "🔵"}.get(question.type, "⚪")
+
+    button_label = f"{truncated_question}"
+
+    # Style the button as a card
     st.markdown(f"""
-        <div style='
-            background-color: {bg_color};
-            padding: 14px;
-            border-radius: 6px;
-            margin: -50px 0 8px 0;
-            border-left: 3px solid {border_color};
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            cursor: pointer;
-            pointer-events: none;
-        '>
-            <p style='margin: 0 0 8px 0; font-weight: 500; font-size: 14px; color: #222; line-height: 1.4;'>{question.question}</p>
-            <div style='display: flex; gap: 6px; align-items: center; flex-wrap: wrap;'>
-                <span style='background-color: {type_color}22; color: {type_color}; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;'>{question.get_display_type()}</span>
-                <span style='background-color: {difficulty_color}22; color: {difficulty_color}; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;'>{question.difficulty.title()}</span>
-                <span style='color: #666; font-size: 12px; margin-left: 4px;'>{question.importance}/10</span>
-            </div>
-        </div>
+        <style>
+            /* Target this specific button by key */
+            button[kind="secondary"][key="{card_id}"] {{
+                background-color: {bg_color} !important;
+                border: none !important;
+                border-left: 3px solid {border_color} !important;
+                border-radius: 6px !important;
+                padding: 14px !important;
+                text-align: left !important;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+                margin-bottom: 8px !important;
+                width: 100% !important;
+                height: auto !important;
+                min-height: 70px !important;
+                transition: all 0.1s ease !important;
+                color: #222 !important;
+                font-weight: 500 !important;
+                font-size: 14px !important;
+                line-height: 1.4 !important;
+                white-space: normal !important;
+            }}
+
+            button[kind="secondary"][key="{card_id}"]:hover {{
+                transform: translateY(-2px) !important;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+                background-color: {bg_color} !important;
+                border-left: 3px solid {border_color} !important;
+            }}
+
+            button[kind="secondary"][key="{card_id}"]:active {{
+                transform: translateY(0px) !important;
+            }}
+
+            /* Add badge info using ::after pseudo-element */
+            button[kind="secondary"][key="{card_id}"]::after {{
+                content: "{type_emoji} {question.get_display_type()}  {difficulty_emoji} {question.difficulty.title()}  ⭐ {question.importance}/10";
+                display: block;
+                margin-top: 8px;
+                font-size: 11px;
+                font-weight: 600;
+                color: #666;
+            }}
+        </style>
     """, unsafe_allow_html=True)
+
+    # Create the button
+    clicked = st.button(button_label, key=card_id, use_container_width=True)
 
     return clicked
 
@@ -110,16 +148,23 @@ def show_question_detail_panel(question: InterviewQuestion, db: InterviewDB):
     """Display question detail in right panel with STAR method format"""
     st.markdown(f"## {question.question}")
 
-    # Question metadata
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.caption(f"**Type:** {question.get_display_type()}")
-    with col2:
-        st.caption(f"**Difficulty:** {question.difficulty.title()}")
-    with col3:
-        st.caption(f"**Importance:** {question.importance}/10")
+    # Question metadata in single row
+    type_emoji = {"behavioral": "💜", "technical": "🔵", "system_design": "🟠", "case_study": "🔵"}.get(question.type, "⚪")
+    difficulty_emoji = {"easy": "🟢", "medium": "🟡", "hard": "🔴"}.get(question.difficulty, "⚪")
 
-    st.divider()
+    st.markdown(f"""
+        <div style='display: flex; gap: 24px; align-items: baseline; margin-bottom: 24px;'>
+            <span style='color: #666; font-size: 14px; display: inline-flex; align-items: baseline; gap: 4px;'>
+                <strong>Type:</strong> <span>{type_emoji}</span> <span>{question.get_display_type()}</span>
+            </span>
+            <span style='color: #666; font-size: 14px; display: inline-flex; align-items: baseline; gap: 4px;'>
+                <strong>Difficulty:</strong> <span>{difficulty_emoji}</span> <span>{question.difficulty.title()}</span>
+            </span>
+            <span style='color: #666; font-size: 14px; display: inline-flex; align-items: baseline; gap: 4px;'>
+                <strong>Importance:</strong> <span>⭐</span> <span>{question.importance}/10</span>
+            </span>
+        </div>
+    """, unsafe_allow_html=True)
 
     # Display answer in STAR format if behavioral
     if question.type == "behavioral" and question.answer_star:
@@ -164,17 +209,32 @@ def show_question_detail_panel(question: InterviewQuestion, db: InterviewDB):
         st.markdown("### 📌 Notes")
         st.info(question.notes)
 
-    # Practice info
-    st.divider()
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Practice Count", question.practice_count)
-    with col2:
-        if question.last_practiced:
-            days_ago = (datetime.now() - datetime.fromisoformat(question.last_practiced)).days
-            st.metric("Last Practiced", f"{days_ago} days ago")
-        else:
-            st.metric("Last Practiced", "Never")
+    # Practice info with box
+    # Create a styled container for practice metrics
+    st.markdown("""
+        <style>
+            .practice-metrics-box {
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                padding: 16px;
+                background-color: #f8f9fa;
+                margin-bottom: 16px;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    with st.container():
+        st.markdown('<div class="practice-metrics-box">', unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Practice Count", question.practice_count)
+        with col2:
+            if question.last_practiced:
+                days_ago = (datetime.now() - datetime.fromisoformat(question.last_practiced)).days
+                st.metric("Last Practiced", f"{days_ago} days ago")
+            else:
+                st.metric("Last Practiced", "Never")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Action buttons
     st.divider()
