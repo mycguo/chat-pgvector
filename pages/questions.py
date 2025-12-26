@@ -41,10 +41,9 @@ def show_question_list_item(question: InterviewQuestion, is_selected: bool = Fal
     type_color = type_colors.get(question.type, "#666")
 
     clicked = st.button(
-        "",
+        " ",
         key=f"select_{question.id}",
-        use_container_width=True,
-        label_visibility="collapsed"
+        use_container_width=True
     )
 
     # Display card content (this renders above the button due to Streamlit's layout)
