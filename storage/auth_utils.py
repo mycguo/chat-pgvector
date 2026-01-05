@@ -503,37 +503,6 @@ def handle_linkedin_callback(code: str, state: str) -> bool:
     # Debug: Show user info
     st.success(f"✅ Successfully authenticated as {user_info.get('name', user_info.get('email', 'LinkedIn User'))}")
 
-    # Store identity mapping for external APIs (like browser extension)
-    if HAS_STORAGE_UTILS:
-        try:
-            # We use a system-level user_id for shared metadata
-            store = PgVectorStore(collection_name="system_metadata", user_id="system")
-            
-            # The target user_id is what get_user_id() would return for this session
-            target_user_id = get_user_id()
-            
-            mapping_data = {
-                "record_type": "identity_mapping",
-                "linkedin_sub": user_info.get("sub"),
-                "linkedin_email": user_info.get("email"),
-                "linkedin_name": user_info.get("name"),
-                "target_user_id": target_user_id,
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            # Use sub or email as the record ID for deduplication
-            record_id = f"mapping_{user_info.get('sub') or user_info.get('email')}"
-            mapping_data["record_id"] = record_id
-            
-            # Add to vector store (without embedding for now, or use a dummy)
-            store.add_texts(
-                [f"Identity mapping for {user_info.get('name')} ({user_info.get('email')})"],
-                metadatas=[mapping_data]
-            )
-            LOGGER.info("Stored identity mapping for %s -> %s", record_id, target_user_id)
-        except Exception as e:
-            LOGGER.error("Failed to store identity mapping: %s", e)
-
     return True
 
 

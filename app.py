@@ -24,7 +24,7 @@ sys.path.insert(0, '.')
 from components.quick_notes import render_quick_notes
 
 # Register REST endpoint for browser extensions
-register_jobs_api_route()
+register_jobs_api_route(force=True)
 
 # Note: Google API key is automatically picked up by langchain_google_genai
 # No explicit configuration needed - it uses GOOGLE_API_KEY environment variable

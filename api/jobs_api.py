@@ -14,6 +14,7 @@ from streamlit.web.server.server_util import make_url_path_regex
 
 from models.application import create_application
 from storage.json_db import JobSearchDB
+from storage.user_utils import sanitize_user_id
 from ai.job_parser import extract_job_details
 
 LOGGER = logging.getLogger(__name__)
@@ -79,6 +80,14 @@ class JobsApiHandler(tornado.web.RequestHandler):
 
         try:
             user_id = _resolve_user_id(payload)
+            if not user_id:
+                self._write_error(
+                    401,
+                    "Unauthorized: User email not configured in extension settings. "
+                    "Please set your Email in the extension options."
+                )
+                return
+
             db = JobSearchDB(user_id=user_id)
             parsed = extract_job_details(page_content, job_url=job_url)
             if not parsed.get("company") or not parsed.get("role"):
@@ -144,60 +153,35 @@ class JobsApiHandler(tornado.web.RequestHandler):
         self.finish({"success": False, "error": message})
 
 
-def _resolve_user_id(payload: Dict[str, Any]) -> str:
-    """Determine which JobSearch user bucket should store this job."""
+def _resolve_user_id(payload: Dict[str, Any]) -> Optional[str]:
+    """
+    Determine which JobSearch user bucket should store this job.
+    Ensures user_id is prefixed with 'linkedin_'.
+    """
 
     # 1. Allow explicit override in payload
-    if payload.get("user_id"):
-        return str(payload["user_id"]).strip()
+    user_id = payload.get("user_id")
 
-    # 2. Try explicit identity mapping for LinkedIn
-    linkedin_member_id = payload.get("linkedin_member_id")
-    linkedin_handle = payload.get("linkedin_handle")
+    # 2. Global default from environment if not in payload
+    if not user_id:
+        user_id = os.getenv("JOB_SEARCH_API_USER_ID")
 
-    if linkedin_member_id or linkedin_handle:
-        try:
-            from storage.pg_vector_store import PgVectorStore
-            # Search in the system-level mapping collection
-            store = PgVectorStore(collection_name="system_metadata", user_id="system")
-            
-            # Try member_id first (more robust)
-            if linkedin_member_id:
-                mappings = store.list_records(
-                    record_type="identity_mapping",
-                    filters={"linkedin_sub": str(linkedin_member_id)}
-                )
-                if mappings:
-                    target = mappings[0].get("target_user_id")
-                    LOGGER.info("Resolved user_id to %s via member_id %s", target, linkedin_member_id)
-                    return target
+    if not user_id:
+        return None
 
-            # Then try handle (guessing but better than nothing)
-            if linkedin_handle:
-                # We can't do exact match on the whole directory name easily without a list
-                # but we can look for it in the mapping table if we stored it
-                # For now, let's keep the legacy folder scan as a fallback
-                pass
-        except Exception as e:
-            LOGGER.warning("Identity mapping lookup failed: %s", e)
+    # Always ensure linkedin_ prefix and sanitize
+    user_id = str(user_id).strip().lower()
+    if not user_id.startswith("linkedin_"):
+        user_id = f"linkedin_{user_id}"
 
-    # 3. Legacy scan fallback for LinkedIn extension
-    if linkedin_handle:
-        user_data_dir = "user_data"
-        if os.path.exists(user_data_dir):
-            for dirname in os.listdir(user_data_dir):
-                if dirname.startswith("linkedin_") and linkedin_handle in dirname:
-                    LOGGER.info("Auto-resolved user_id to %s based on folder scan for %s", dirname, linkedin_handle)
-                    return dirname
-
-    return os.getenv("JOB_SEARCH_API_USER_ID", "default_user")
+    return sanitize_user_id(user_id)
 
 
-def register_jobs_api_route() -> None:
+def register_jobs_api_route(force: bool = False) -> None:
     """Register the /api/jobs route with the running Tornado app."""
 
     global _ROUTE_REGISTERED
-    if _ROUTE_REGISTERED:
+    if _ROUTE_REGISTERED and not force:
         return
 
     app = _find_tornado_app()
@@ -208,9 +192,15 @@ def register_jobs_api_route() -> None:
     base = config.get_option("server.baseUrlPath")
     pattern = make_url_path_regex(base, "api", "jobs")
 
-    app.add_handlers(r".*$", [(pattern, JobsApiHandler)])
-    _ROUTE_REGISTERED = True
-    LOGGER.info("Registered /api/jobs endpoint")
+    try:
+        # Tornado's add_handlers prepends rules to the router, so the latest 
+        # registration will take precedence over older ones.
+        app.add_handlers(r".*$", [(pattern, JobsApiHandler)])
+        _ROUTE_REGISTERED = True
+        LOGGER.info("Registered /api/jobs endpoint (prepended for precedence)")
+    except Exception as e:
+        LOGGER.error("Failed to add Tornado handler: %s", e)
+        _ROUTE_REGISTERED = False
 
 
 def _schedule_retry(delay_seconds: float = 1.0) -> None:

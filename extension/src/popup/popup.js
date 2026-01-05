@@ -1,6 +1,9 @@
 const REQUEST_EVENT = 'REQUEST_PAGE_CONTENT';
 const SAVE_EVENT = 'SAVE_JOB_DETAILS';
 
+const identitySection = document.getElementById('identity-info');
+const identityValue = document.getElementById('identity-value');
+const openOptionsBtn = document.getElementById('open-options');
 const pageTitleEl = document.getElementById('page-title');
 const pageUrlEl = document.getElementById('page-url');
 const notesEl = document.getElementById('job-notes');
@@ -8,6 +11,15 @@ const saveButton = document.getElementById('save-job');
 const statusMessage = document.getElementById('status-message');
 
 let currentPageData = null;
+let currentSettings = null;
+
+async function getSettings() {
+    return new Promise((resolve) => {
+        chrome.storage.sync.get(['apiUserId', 'apiEndpoint'], (stored) => {
+            resolve(stored || {});
+        });
+    });
+}
 
 function setStatus(message, type = 'info') {
     statusMessage.textContent = message;
@@ -20,17 +32,35 @@ function renderPageInfo(data) {
         pageUrlEl.textContent = '';
         saveButton.disabled = true;
         currentPageData = null;
+        identitySection.style.display = 'none';
         return;
     }
 
     pageTitleEl.textContent = data.title || 'LinkedIn job page';
     pageUrlEl.textContent = data.url || '';
-    saveButton.disabled = false;
     currentPageData = data;
+
+    // Check if user email is configured
+    if (!currentSettings?.apiUserId) {
+        setStatus('Please set your Email in extension settings.', 'error');
+        saveButton.disabled = true;
+        identitySection.style.display = 'none';
+    } else {
+        saveButton.disabled = false;
+        if (data.linkedinHandle || data.linkedinMemberId) {
+            identitySection.style.display = 'block';
+            identityValue.textContent = data.linkedinHandle || `ID: ${data.linkedinMemberId}`;
+        } else {
+            identitySection.style.display = 'none';
+        }
+    }
 }
 
 async function requestPageContent() {
     setStatus('Capturing page content...');
+
+    // Refresh settings before capturing
+    currentSettings = await getSettings();
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) {
@@ -63,13 +93,20 @@ async function requestPageContent() {
             return;
         }
 
-        setStatus('Ready to add this job.');
+        if (currentSettings?.apiUserId) {
+            setStatus('Ready to add this job.');
+        }
     });
 }
 
 function handleSaveClick() {
     if (!currentPageData || !currentPageData.fullText) {
         setStatus('Job content not available yet.', 'warning');
+        return;
+    }
+
+    if (!currentSettings?.apiUserId) {
+        setStatus('Email required in settings.', 'error');
         return;
     }
 
@@ -80,7 +117,9 @@ function handleSaveClick() {
         jobUrl: currentPageData.url,
         pageTitle: currentPageData.title,
         pageContent: currentPageData.fullText,
-        notes: notesEl.value.trim()
+        notes: notesEl.value.trim(),
+        linkedinHandle: currentPageData.linkedinHandle,
+        linkedinMemberId: currentPageData.linkedinMemberId
     };
 
     chrome.runtime.sendMessage({ type: SAVE_EVENT, payload }, (response) => {
@@ -100,6 +139,10 @@ function handleSaveClick() {
         notesEl.value = '';
     });
 }
+
+openOptionsBtn.addEventListener('click', () => {
+    chrome.runtime.openOptionsPage();
+});
 
 saveButton.addEventListener('click', handleSaveClick);
 document.addEventListener('DOMContentLoaded', () => {

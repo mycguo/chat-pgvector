@@ -11,6 +11,23 @@ except ImportError:
     HAS_STREAMLIT = False
 
 
+def sanitize_user_id(user_identifier: str) -> str:
+    """
+    Sanitize the identifier for use in file paths and collection names.
+    Replace invalid characters with underscores.
+    """
+    if not user_identifier:
+        return "default_user"
+        
+    # Replace invalid characters with underscores
+    sanitized = re.sub(r'[^a-zA-Z0-9_-]', '_', user_identifier)
+    # Remove consecutive underscores
+    sanitized = re.sub(r'_+', '_', sanitized)
+    # Remove leading/trailing underscores
+    sanitized = sanitized.strip('_')
+    return sanitized
+
+
 def get_user_id() -> str:
     """
     Get a unique user identifier from Streamlit user object or LinkedIn session.
@@ -81,13 +98,8 @@ def get_user_id() -> str:
             # Final fallback: use a default user ID
             user_identifier = "default_user"
 
-    # Sanitize the identifier for use in file paths and collection names
-    # Replace invalid characters with underscores
-    sanitized = re.sub(r'[^a-zA-Z0-9_-]', '_', user_identifier)
-    # Remove consecutive underscores
-    sanitized = re.sub(r'_+', '_', sanitized)
-    # Remove leading/trailing underscores
-    sanitized = sanitized.strip('_')
+    # Sanitize and return
+    return sanitize_user_id(user_identifier)
 
     # Cache in session state for consistency
     if hasattr(st, 'session_state'):

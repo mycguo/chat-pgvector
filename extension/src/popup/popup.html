@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <title>Job Search Collector</title>
     <link rel="stylesheet" href="popup.css" />
 </head>
+
 <body>
     <header>
         <img src="../../assets/icons/icon48.png" alt="Job Tracker" />
@@ -20,6 +22,11 @@
         <p id="page-url" class="value subtext"></p>
     </section>
 
+    <section id="identity-info" style="display: none;">
+        <span class="label">Detected Identity</span>
+        <p id="identity-value" class="value">None</p>
+    </section>
+
     <section id="notes-section">
         <label for="job-notes">Notes (optional)</label>
         <textarea id="job-notes" rows="4" placeholder="Interview stage, referral, reminders..."></textarea>
@@ -27,10 +34,12 @@
 
     <section id="actions">
         <button id="save-job" disabled>Add to my applications</button>
+        <button id="open-options" class="secondary">Settings</button>
         <p id="status-message">Open a LinkedIn job post and wait a moment.</p>
     </section>
 
     <script src="../config.js"></script>
     <script src="popup.js"></script>
 </body>
+
 </html>
