@@ -6,6 +6,7 @@ const identityValue = document.getElementById('identity-value');
 const openOptionsBtn = document.getElementById('open-options');
 const pageTitleEl = document.getElementById('page-title');
 const pageUrlEl = document.getElementById('page-url');
+const userIdInput = document.getElementById('api-user-id');
 const notesEl = document.getElementById('job-notes');
 const saveButton = document.getElementById('save-job');
 const statusMessage = document.getElementById('status-message');
@@ -41,8 +42,8 @@ function renderPageInfo(data) {
     currentPageData = data;
 
     // Check if user email is configured
-    if (!currentSettings?.apiUserId) {
-        setStatus('Please set your Email in extension settings.', 'error');
+    if (!userIdInput.value.trim()) {
+        setStatus('Please set your Account Email.', 'error');
         saveButton.disabled = true;
         identitySection.style.display = 'none';
     } else {
@@ -61,6 +62,7 @@ async function requestPageContent() {
 
     // Refresh settings before capturing
     currentSettings = await getSettings();
+    userIdInput.value = currentSettings.apiUserId || '';
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) {
@@ -105,9 +107,16 @@ function handleSaveClick() {
         return;
     }
 
-    if (!currentSettings?.apiUserId) {
-        setStatus('Email required in settings.', 'error');
+    const userId = userIdInput.value.trim();
+    if (!userId) {
+        setStatus('Account Email is required.', 'error');
         return;
+    }
+
+    // Save User ID to storage if it changed
+    if (userId !== currentSettings.apiUserId) {
+        chrome.storage.sync.set({ apiUserId: userId });
+        currentSettings.apiUserId = userId;
     }
 
     saveButton.disabled = true;
@@ -117,6 +126,7 @@ function handleSaveClick() {
         jobUrl: currentPageData.url,
         pageTitle: currentPageData.title,
         pageContent: currentPageData.fullText,
+        userId: userId,
         notes: notesEl.value.trim(),
         linkedinHandle: currentPageData.linkedinHandle,
         linkedinMemberId: currentPageData.linkedinMemberId
@@ -139,6 +149,16 @@ function handleSaveClick() {
         notesEl.value = '';
     });
 }
+
+userIdInput.addEventListener('input', () => {
+    if (userIdInput.value.trim()) {
+        saveButton.disabled = false;
+        setStatus('Ready to add this job.');
+    } else {
+        saveButton.disabled = true;
+        setStatus('Please set your Account Email.', 'error');
+    }
+});
 
 openOptionsBtn.addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
