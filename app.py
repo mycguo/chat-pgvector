@@ -776,11 +776,15 @@ def login_screen():
                 background-color: #2a66c9 !important;
                 border-color: #2a66c9 !important;
             }
-            /* LinkedIn blue branding for link button */
-            .stLinkButton > a {
+            /* LinkedIn blue branding for link button - match Google button styling */
+            div[data-testid="stLinkButton"] {
+                width: 100% !important;
+                display: block !important;
+            }
+            div[data-testid="stLinkButton"] > a {
                 background-color: #0077B5 !important;
                 color: white !important;
-                border-color: #0077B5 !important;
+                border: 1px solid #0077B5 !important;
                 width: 100% !important;
                 text-align: center !important;
                 display: block !important;
@@ -788,30 +792,36 @@ def login_screen():
                 border-radius: 0.5rem !important;
                 text-decoration: none !important;
                 font-weight: 400 !important;
+                font-size: 1rem !important;
+                line-height: 1.6 !important;
+                min-height: 2.5rem !important;
+                box-sizing: border-box !important;
             }
-            .stLinkButton > a:hover {
+            div[data-testid="stLinkButton"] > a:hover {
                 background-color: #006396 !important;
                 border-color: #006396 !important;
+                color: white !important;
             }
-            .stLinkButton > a:active {
+            div[data-testid="stLinkButton"] > a:active {
                 background-color: #005077 !important;
                 border-color: #005077 !important;
+                color: white !important;
             }
         </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("## 🔐 Please log in")
+    st.markdown("## 🔐 Please Login")
     st.markdown("Access to Job Search Agent requires authentication.")
 
     # Only show login buttons if login hasn't been attempted yet
     if 'login_attempted' not in st.session_state and 'linkedin_login_initiated' not in st.session_state:
         # Google login
-        render_login_button(label="🔵 Log in with Google", use_container_width=True, type="primary")
+        render_login_button(label="🔵 Login with Google", use_container_width=True, type="primary")
 
         # LinkedIn login (if configured)
         if is_linkedin_configured():
             st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
-            render_linkedin_login_button(label="🔗 Log in with LinkedIn")
+            render_linkedin_login_button(label="🔗 Login with LinkedIn", use_container_width=True)
     else:
         st.info("🔄 Login in progress... Please complete the authentication.")
         if st.button("Reset login state"):
@@ -927,9 +937,6 @@ def main():
 
     st.title("🎯 Job Search Agent")
     st.markdown("Your AI-powered career companion")
-
-    # Render quick notes in sidebar (accessible from anywhere)
-    render_quick_notes()
 
     # Sidebar for quick actions
     with st.sidebar:
@@ -1051,7 +1058,10 @@ def main():
 
     st.markdown("<div style='height:200px;'></div>", unsafe_allow_html=True)
     st.markdown("---")
-    st.button("Log out", on_click=logout, width="stretch")
+    if st.button("Log out", width="stretch"):
+        needs_rerun = not logout()  # logout() returns True for Google (handles redirect itself)
+        if needs_rerun:
+            st.rerun()  # Only rerun for LinkedIn logout
 
 if __name__ == "__main__":
     main()

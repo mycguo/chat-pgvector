@@ -199,37 +199,70 @@ def login():
 def logout():
     """
     Safely call st.logout if available.
-    Clears session state authentication flags for both Google and LinkedIn.
+    Clears ALL session state and authentication data for both Google and LinkedIn.
+
+    Returns:
+        True if using Google logout (which handles redirect), False if manual rerun needed
     """
     if HAS_STREAMLIT:
         try:
+            # Check if logged in via LinkedIn
+            is_linkedin = st.session_state.get('auth_provider') == 'linkedin' or st.session_state.get('linkedin_authenticated')
+
             # Clear LinkedIn session if logged in via LinkedIn
             linkedin_logout()
 
-            # Clear session authentication flags
-            if 'authenticated_in_session' in st.session_state:
-                del st.session_state['authenticated_in_session']
-            if 'login_attempted' in st.session_state:
-                del st.session_state['login_attempted']
-            if 'user_id' in st.session_state:
-                del st.session_state['user_id']
-            if 'cached_user_id' in st.session_state:
-                del st.session_state['cached_user_id']
+            # Clear all authentication-related session state
+            auth_keys_to_clear = [
+                'authenticated_in_session',
+                'login_attempted',
+                'user_id',
+                'cached_user_id',
+                # LinkedIn specific (redundant but safe)
+                'linkedin_authenticated',
+                'linkedin_user_info',
+                'linkedin_access_token',
+                'linkedin_oauth_state',
+                'linkedin_login_initiated',
+                'linkedin_callback_processed',
+                'auth_provider',
+            ]
 
-            # Then call st.logout to clear the Google OAuth cookie
-            if hasattr(st, 'logout'):
+            for key in auth_keys_to_clear:
+                if key in st.session_state:
+                    del st.session_state[key]
+
+            # If using Google OAuth, call st.logout which handles redirect automatically
+            # Otherwise, caller needs to call st.rerun()
+            if hasattr(st, 'logout') and not is_linkedin:
                 st.logout()
+                return True  # Google logout handles redirect
+
+            return False  # Manual rerun needed
         except (AttributeError, Exception):
             # Fallback: clear session state
             linkedin_logout()
-            if 'authenticated_in_session' in st.session_state:
-                del st.session_state['authenticated_in_session']
-            if 'login_attempted' in st.session_state:
-                del st.session_state['login_attempted']
-            if 'user_id' in st.session_state:
-                del st.session_state['user_id']
-            if 'cached_user_id' in st.session_state:
-                del st.session_state['cached_user_id']
+
+            # Clear all authentication-related session state
+            auth_keys_to_clear = [
+                'authenticated_in_session',
+                'login_attempted',
+                'user_id',
+                'cached_user_id',
+                'linkedin_authenticated',
+                'linkedin_user_info',
+                'linkedin_access_token',
+                'linkedin_oauth_state',
+                'linkedin_login_initiated',
+                'linkedin_callback_processed',
+                'auth_provider',
+            ]
+
+            for key in auth_keys_to_clear:
+                if key in st.session_state:
+                    del st.session_state[key]
+
+            return False  # Manual rerun needed
 
 
 def render_login_button(label: str = "Log in with Google", **button_kwargs: Any) -> bool:
@@ -473,6 +506,7 @@ def linkedin_logout() -> None:
         'linkedin_access_token',
         'linkedin_oauth_state',
         'linkedin_login_initiated',
+        'linkedin_callback_processed',
         'auth_provider',
     ]
 

@@ -4,7 +4,14 @@ from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from storage.pg_vector_store import PgVectorStore as MilvusVectorStore
-from storage.auth_utils import is_user_logged_in, logout, render_login_button
+from storage.auth_utils import (
+    is_user_logged_in,
+    logout,
+    render_login_button,
+    render_linkedin_login_button,
+    handle_linkedin_callback,
+    is_linkedin_configured
+)
 import docx  # Import the python-docx library
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -265,12 +272,49 @@ def login_screen():
                 background-color: #2a66c9 !important;
                 border-color: #2a66c9 !important;
             }
+        
+            /* LinkedIn blue branding for link button */
+            div[data-testid="stLinkButton"] {
+                width: 100% !important;
+                display: block !important;
+            }
+            div[data-testid="stLinkButton"] > a {
+                background-color: #0077B5 !important;
+                color: white !important;
+                border: 1px solid #0077B5 !important;
+                width: 100% !important;
+                text-align: center !important;
+                display: block !important;
+                padding: 0.5rem 0.75rem !important;
+                border-radius: 0.5rem !important;
+                text-decoration: none !important;
+                font-weight: 400 !important;
+                font-size: 1rem !important;
+                line-height: 1.6 !important;
+                min-height: 2.5rem !important;
+                box-sizing: border-box !important;
+            }
+            div[data-testid="stLinkButton"] > a:hover {
+                background-color: #006396 !important;
+                border-color: #006396 !important;
+                color: white !important;
+            }
+            div[data-testid="stLinkButton"] > a:active {
+                background-color: #005077 !important;
+                border-color: #005077 !important;
+                color: white !important;
+            }
         </style>
     """, unsafe_allow_html=True)
 
     st.header("Please log in to access Upload Documents")
     st.subheader("Please log in.")
     render_login_button(type="primary", use_container_width=True)
+    
+    # LinkedIn login (if configured)
+    if is_linkedin_configured():
+        st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+        render_linkedin_login_button(label="🔗 Login with LinkedIn")
 
 
 def manage_documents():
@@ -306,6 +350,59 @@ def manage_documents():
 
 def main():
     st.set_page_config(page_title="Upload Documents", page_icon="📚", layout="wide")
+
+    # Handle LinkedIn OAuth callback
+    query_params = st.query_params
+
+    # Check if this is a LinkedIn callback (has code and state parameters)
+    if 'code' in query_params and 'state' in query_params:
+        # This is a LinkedIn OAuth callback
+        code = query_params['code']
+        state = query_params['state']
+
+        # Only process if not already processed (check session state flag)
+        if not st.session_state.get('linkedin_callback_processed'):
+            # Show processing message
+            with st.spinner("Processing LinkedIn login..."):
+                # Handle the callback
+                success = handle_linkedin_callback(code, state)
+
+            if success:
+                # Mark as processed to prevent re-processing on rerun
+                st.session_state['linkedin_callback_processed'] = True
+
+                # Clear query parameters
+                try:
+                    st.query_params.clear()
+                except:
+                    pass
+
+                # Small delay to ensure session state is saved
+                import time
+                time.sleep(0.5)
+
+                # Rerun to show the main app (user is now logged in)
+                st.rerun()
+            else:
+                st.error("Failed to complete LinkedIn login. Please try again.")
+                if 'linkedin_login_initiated' in st.session_state:
+                    del st.session_state['linkedin_login_initiated']
+                if 'linkedin_oauth_state' in st.session_state:
+                    del st.session_state['linkedin_oauth_state']
+
+                try:
+                    st.query_params.clear()
+                except:
+                    pass
+
+                st.rerun()
+        else:
+            try:
+                st.query_params.clear()
+            except:
+                pass
+
+
     
     if not is_user_logged_in():
         login_screen()
@@ -524,7 +621,10 @@ def main():
     
     # Logout button
     st.divider()
-    st.button("Log out", on_click=logout)
+    if st.button("Log out"):
+        needs_rerun = not logout()  # logout() returns True for Google (handles redirect itself)
+        if needs_rerun:
+            st.rerun()  # Only rerun for LinkedIn logout
 
 if __name__ == "__main__":
     main()
