@@ -813,10 +813,10 @@ def login_screen():
     st.markdown("## 🔐 Please Login")
     st.markdown("Access to Job Search Agent requires authentication.")
 
-    # Only show login buttons if login hasn't been attempted yet
-    if 'login_attempted' not in st.session_state and 'linkedin_login_initiated' not in st.session_state:
+    # Only show login button if login hasn't been attempted yet
+    if 'login_attempted' not in st.session_state:
         # Google login
-        render_login_button(label="🔵 Login with Google", use_container_width=True, type="primary")
+        render_login_button(use_container_width=True, type="primary")
 
         # LinkedIn login (if configured)
         if is_linkedin_configured():
