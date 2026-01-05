@@ -420,7 +420,9 @@ def linkedin_login() -> str:
         return ""
 
     # Generate and store state for CSRF protection
-    state = secrets.token_urlsafe(32)
+    # Prefix with "linkedin_" so we can identify LinkedIn callbacks without session state
+    random_token = secrets.token_urlsafe(32)
+    state = f"linkedin_{random_token}"
     st.session_state['linkedin_oauth_state'] = state
     st.session_state['linkedin_login_initiated'] = True
 

@@ -877,12 +877,12 @@ def main():
     apply_google_button_style()
 
     # Handle LinkedIn OAuth callback
-    # IMPORTANT: Only process if LinkedIn login was initiated
-    # Google OAuth also uses code/state params, so we must check for LinkedIn session flag
+    # IMPORTANT: Only process if this is a LinkedIn callback
+    # Google OAuth also uses code/state params, so we check if state starts with "linkedin_"
     query_params = st.query_params
 
-    # Check if this is a LinkedIn callback (has code and state parameters AND LinkedIn login was initiated)
-    if 'code' in query_params and 'state' in query_params and st.session_state.get('linkedin_login_initiated'):
+    # Check if this is a LinkedIn callback (has code and state parameters AND state starts with "linkedin_")
+    if 'code' in query_params and 'state' in query_params and query_params.get('state', '').startswith('linkedin_'):
         # This is a LinkedIn OAuth callback
         code = query_params['code']
         state = query_params['state']

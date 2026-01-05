@@ -1102,7 +1102,7 @@ def main():
     query_params = st.query_params
 
     # Check if this is a LinkedIn callback (has code and state parameters)
-    if 'code' in query_params and 'state' in query_params and st.session_state.get('linkedin_login_initiated'):
+    if 'code' in query_params and 'state' in query_params and query_params.get('state', '').startswith('linkedin_'):
         # This is a LinkedIn OAuth callback
         code = query_params['code']
         state = query_params['state']
