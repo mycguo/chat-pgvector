@@ -746,17 +746,24 @@ def download_faiss_from_s3():
     # Legacy function - no longer needed with PostgreSQL backend
     print("Vector data is now stored in PostgreSQL. Migration from FAISS/S3 is no longer supported.")
 
-from storage.auth_utils import is_user_logged_in, logout, render_login_button
+from storage.auth_utils import (
+    is_user_logged_in,
+    logout,
+    render_login_button,
+    render_linkedin_login_button,
+    handle_linkedin_callback,
+    is_linkedin_configured
+)
 
 
 def login_screen():
-    # Hide sidebar navigation before login and style the login button with Google blue
+    # Hide sidebar navigation before login and style the login buttons
     st.markdown("""
         <style>
             [data-testid="stSidebar"] {
                 display: none;
             }
-            /* Google blue branding for login button */
+            /* Google blue branding for primary login button */
             .stButton > button[kind="primary"] {
                 background-color: #4285F4 !important;
                 border-color: #4285F4 !important;
@@ -769,20 +776,51 @@ def login_screen():
                 background-color: #2a66c9 !important;
                 border-color: #2a66c9 !important;
             }
+            /* LinkedIn blue branding for link button */
+            .stLinkButton > a {
+                background-color: #0077B5 !important;
+                color: white !important;
+                border-color: #0077B5 !important;
+                width: 100% !important;
+                text-align: center !important;
+                display: block !important;
+                padding: 0.5rem 0.75rem !important;
+                border-radius: 0.5rem !important;
+                text-decoration: none !important;
+                font-weight: 400 !important;
+            }
+            .stLinkButton > a:hover {
+                background-color: #006396 !important;
+                border-color: #006396 !important;
+            }
+            .stLinkButton > a:active {
+                background-color: #005077 !important;
+                border-color: #005077 !important;
+            }
         </style>
     """, unsafe_allow_html=True)
 
     st.markdown("## 🔐 Please log in")
     st.markdown("Access to Job Search Agent requires authentication.")
 
-    # Only show login button if login hasn't been attempted yet
-    if 'login_attempted' not in st.session_state:
-        render_login_button(use_container_width=True, type="primary")
+    # Only show login buttons if login hasn't been attempted yet
+    if 'login_attempted' not in st.session_state and 'linkedin_login_initiated' not in st.session_state:
+        # Google login
+        render_login_button(label="🔵 Log in with Google", use_container_width=True, type="primary")
+
+        # LinkedIn login (if configured)
+        if is_linkedin_configured():
+            st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+            render_linkedin_login_button(label="🔗 Log in with LinkedIn")
     else:
         st.info("🔄 Login in progress... Please complete the authentication.")
         if st.button("Reset login state"):
             if 'login_attempted' in st.session_state:
                 del st.session_state['login_attempted']
+            if 'linkedin_login_initiated' in st.session_state:
+                del st.session_state['linkedin_login_initiated']
+            if 'linkedin_oauth_state' in st.session_state:
+                del st.session_state['linkedin_oauth_state']
             st.rerun()
 
     st.divider()
@@ -827,6 +865,61 @@ def main():
     # Apply Google blue to all primary buttons
     from components.styles import apply_google_button_style
     apply_google_button_style()
+
+    # Handle LinkedIn OAuth callback
+    query_params = st.query_params
+
+    # Check if this is a LinkedIn callback (has code and state parameters)
+    if 'code' in query_params and 'state' in query_params:
+        # This is a LinkedIn OAuth callback
+        code = query_params['code']
+        state = query_params['state']
+
+        # Only process if not already processed (check session state flag)
+        if not st.session_state.get('linkedin_callback_processed'):
+            # Show processing message
+            with st.spinner("Processing LinkedIn login..."):
+                # Handle the callback
+                success = handle_linkedin_callback(code, state)
+
+            if success:
+                # Mark as processed to prevent re-processing on rerun
+                st.session_state['linkedin_callback_processed'] = True
+
+                # Clear query parameters
+                try:
+                    st.query_params.clear()
+                except:
+                    # Fallback for older Streamlit versions
+                    pass
+
+                # Small delay to ensure session state is saved
+                import time
+                time.sleep(0.5)
+
+                # Rerun to show the main app (user is now logged in)
+                st.rerun()
+            else:
+                st.error("Failed to complete LinkedIn login. Please try again.")
+                # Clear login state
+                if 'linkedin_login_initiated' in st.session_state:
+                    del st.session_state['linkedin_login_initiated']
+                if 'linkedin_oauth_state' in st.session_state:
+                    del st.session_state['linkedin_oauth_state']
+
+                # Clear query parameters
+                try:
+                    st.query_params.clear()
+                except:
+                    pass
+
+                st.rerun()
+        else:
+            # Already processed, just clear params and continue
+            try:
+                st.query_params.clear()
+            except:
+                pass
 
     if not is_user_logged_in():
         login_screen()

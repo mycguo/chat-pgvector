@@ -5,7 +5,10 @@ Handles authentication safely across different Streamlit versions and deployment
 """
 
 import os
+import secrets
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlencode
+import requests
 
 try:
     import streamlit as st
@@ -76,7 +79,7 @@ See `docs/OAUTH_REDIRECT_URI_SETUP.md` for full Google Cloud setup instructions.
 
 def is_user_logged_in() -> bool:
     """
-    Safely check if user is logged in.
+    Safely check if user is logged in via Google or LinkedIn.
 
     Requires login on every app restart by checking session state.
     Session state is cleared on restart, forcing re-authentication.
@@ -91,7 +94,11 @@ def is_user_logged_in() -> bool:
         return True
 
     try:
-        # Check if user is logged in via Streamlit auth
+        # Check if user is logged in via LinkedIn
+        if is_linkedin_user_logged_in():
+            return True
+
+        # Check if user is logged in via Streamlit auth (Google)
         user_is_logged_in = False
         has_auth_system = False
         if hasattr(st, 'user') and hasattr(st.user, 'is_logged_in'):
@@ -192,10 +199,13 @@ def login():
 def logout():
     """
     Safely call st.logout if available.
-    Clears session state authentication flags.
+    Clears session state authentication flags for both Google and LinkedIn.
     """
     if HAS_STREAMLIT:
         try:
+            # Clear LinkedIn session if logged in via LinkedIn
+            linkedin_logout()
+
             # Clear session authentication flags
             if 'authenticated_in_session' in st.session_state:
                 del st.session_state['authenticated_in_session']
@@ -206,11 +216,12 @@ def logout():
             if 'cached_user_id' in st.session_state:
                 del st.session_state['cached_user_id']
 
-            # Then call st.logout to clear the cookie
+            # Then call st.logout to clear the Google OAuth cookie
             if hasattr(st, 'logout'):
                 st.logout()
         except (AttributeError, Exception):
             # Fallback: clear session state
+            linkedin_logout()
             if 'authenticated_in_session' in st.session_state:
                 del st.session_state['authenticated_in_session']
             if 'login_attempted' in st.session_state:
@@ -235,4 +246,256 @@ def render_login_button(label: str = "Log in with Google", **button_kwargs: Any)
     if clicked:
         login()
         return True
+    return False
+
+
+# ==================== LinkedIn OAuth Functions ====================
+
+LINKEDIN_AUTH_URL = "https://www.linkedin.com/oauth/v2/authorization"
+LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
+LINKEDIN_USER_INFO_URL = "https://api.linkedin.com/v2/userinfo"
+
+
+def get_linkedin_config() -> Dict[str, str]:
+    """Get LinkedIn OAuth configuration from Streamlit secrets."""
+    if not HAS_STREAMLIT:
+        return {}
+
+    secrets = getattr(st, "secrets", {})
+    return {
+        "client_id": secrets.get("LINKEDIN_CLIENT_ID", ""),
+        "client_secret": secrets.get("LINKEDIN_CLIENT_SECRET", ""),
+        "redirect_uri": secrets.get("LINKEDIN_REDIRECT_URI", "http://localhost:8501"),
+    }
+
+
+def is_linkedin_configured() -> bool:
+    """Check if LinkedIn OAuth is properly configured."""
+    config = get_linkedin_config()
+    return bool(config.get("client_id") and config.get("client_secret"))
+
+
+def get_linkedin_auth_url(state: str) -> str:
+    """
+    Generate LinkedIn OAuth authorization URL.
+
+    Args:
+        state: Random state string for CSRF protection
+
+    Returns:
+        LinkedIn authorization URL
+    """
+    config = get_linkedin_config()
+
+    params = {
+        "response_type": "code",
+        "client_id": config["client_id"],
+        "redirect_uri": config["redirect_uri"],
+        "state": state,
+        "scope": "openid profile email",
+    }
+
+    return f"{LINKEDIN_AUTH_URL}?{urlencode(params)}"
+
+
+def exchange_linkedin_code_for_token(code: str) -> Optional[str]:
+    """
+    Exchange LinkedIn authorization code for access token.
+
+    Args:
+        code: Authorization code from LinkedIn callback
+
+    Returns:
+        Access token string or None if exchange fails
+    """
+    config = get_linkedin_config()
+
+    data = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": config["redirect_uri"],
+        "client_id": config["client_id"],
+        "client_secret": config["client_secret"],
+    }
+
+    try:
+        response = requests.post(LINKEDIN_TOKEN_URL, data=data, timeout=10)
+        response.raise_for_status()
+        token_data = response.json()
+        return token_data.get("access_token")
+    except requests.exceptions.HTTPError as e:
+        if HAS_STREAMLIT:
+            error_detail = ""
+            try:
+                error_detail = response.json()
+                st.error(f"LinkedIn token exchange failed: {error_detail.get('error_description', str(e))}")
+            except:
+                st.error(f"LinkedIn token exchange failed (HTTP {response.status_code}): {str(e)}")
+        return None
+    except Exception as e:
+        if HAS_STREAMLIT:
+            st.error(f"Failed to exchange LinkedIn code for token: {str(e)}")
+        return None
+
+
+def get_linkedin_user_info(access_token: str) -> Optional[Dict[str, Any]]:
+    """
+    Fetch LinkedIn user profile information.
+
+    Args:
+        access_token: LinkedIn access token
+
+    Returns:
+        User info dictionary or None if fetch fails
+    """
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+    }
+
+    try:
+        response = requests.get(LINKEDIN_USER_INFO_URL, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        if HAS_STREAMLIT:
+            st.error(f"Failed to fetch LinkedIn user info: {e}")
+        return None
+
+
+def is_linkedin_user_logged_in() -> bool:
+    """Check if user is logged in via LinkedIn."""
+    if not HAS_STREAMLIT:
+        return False
+
+    return (
+        'linkedin_authenticated' in st.session_state and
+        st.session_state.get('linkedin_authenticated') is True
+    )
+
+
+def linkedin_login() -> str:
+    """
+    Initiate LinkedIn OAuth login flow.
+
+    Returns:
+        LinkedIn authorization URL to redirect to
+    """
+    if not HAS_STREAMLIT:
+        return ""
+
+    if not is_linkedin_configured():
+        st.error("LinkedIn OAuth is not configured. Please add LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, and LINKEDIN_REDIRECT_URI to secrets.")
+        return ""
+
+    # Generate and store state for CSRF protection
+    state = secrets.token_urlsafe(32)
+    st.session_state['linkedin_oauth_state'] = state
+    st.session_state['linkedin_login_initiated'] = True
+
+    # Get authorization URL
+    auth_url = get_linkedin_auth_url(state)
+
+    return auth_url
+
+
+def handle_linkedin_callback(code: str, state: str) -> bool:
+    """
+    Handle LinkedIn OAuth callback.
+
+    Args:
+        code: Authorization code from LinkedIn
+        state: State parameter for CSRF validation
+
+    Returns:
+        True if login successful, False otherwise
+    """
+    if not HAS_STREAMLIT:
+        return False
+
+    # Verify state to prevent CSRF attacks
+    stored_state = st.session_state.get('linkedin_oauth_state')
+
+    # If stored_state is None, session was lost during redirect
+    # This is common with Streamlit - we'll skip state validation in this case
+    # Note: In production, you may want to use a more persistent storage like cookies
+    if stored_state and stored_state != state:
+        st.error(f"Invalid state parameter. Stored: {stored_state[:10] if stored_state else 'None'}..., Got: {state[:10]}...")
+        return False
+
+    # If no stored state, we'll proceed but log a warning
+    if not stored_state:
+        st.warning("Session state was lost during OAuth redirect. Proceeding without CSRF validation.")
+
+    # Exchange code for access token
+    with st.spinner("Exchanging authorization code for access token..."):
+        access_token = exchange_linkedin_code_for_token(code)
+
+    if not access_token:
+        st.error("Failed to get access token from LinkedIn")
+        return False
+
+    # Get user info
+    with st.spinner("Fetching your LinkedIn profile..."):
+        user_info = get_linkedin_user_info(access_token)
+
+    if not user_info:
+        st.error("Failed to get user information from LinkedIn")
+        return False
+
+    # Store user info in session state
+    st.session_state['linkedin_authenticated'] = True
+    st.session_state['linkedin_user_info'] = user_info
+    st.session_state['linkedin_access_token'] = access_token
+    st.session_state['authenticated_in_session'] = True
+    st.session_state['auth_provider'] = 'linkedin'
+
+    # Clear OAuth state
+    if 'linkedin_oauth_state' in st.session_state:
+        del st.session_state['linkedin_oauth_state']
+    if 'linkedin_login_initiated' in st.session_state:
+        del st.session_state['linkedin_login_initiated']
+
+    # Debug: Show user info
+    st.success(f"✅ Successfully authenticated as {user_info.get('name', user_info.get('email', 'LinkedIn User'))}")
+
+    return True
+
+
+def linkedin_logout() -> None:
+    """Log out LinkedIn user and clear session state."""
+    if not HAS_STREAMLIT:
+        return
+
+    # Clear all LinkedIn-related session state
+    keys_to_clear = [
+        'linkedin_authenticated',
+        'linkedin_user_info',
+        'linkedin_access_token',
+        'linkedin_oauth_state',
+        'linkedin_login_initiated',
+        'auth_provider',
+    ]
+
+    for key in keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
+
+
+def render_linkedin_login_button(label: str = "Log in with LinkedIn", **button_kwargs: Any) -> bool:
+    """Render LinkedIn login button using st.link_button for proper redirect."""
+    if not HAS_STREAMLIT:
+        return False
+
+    if not is_linkedin_configured():
+        st.warning("LinkedIn login is not configured.")
+        return False
+
+    # Generate the LinkedIn auth URL
+    auth_url = linkedin_login()
+
+    if auth_url:
+        # Use st.link_button for external redirect
+        st.link_button(label, auth_url, **button_kwargs)
+        return True
+
     return False

@@ -13,11 +13,12 @@ except ImportError:
 
 def get_user_id() -> str:
     """
-    Get a unique user identifier from Streamlit user object.
+    Get a unique user identifier from Streamlit user object or LinkedIn session.
 
     Returns:
         A sanitized user ID suitable for use in file paths and collection names.
         Uses email if available, otherwise falls back to name or generates a hash.
+        Supports both Google OAuth (via Streamlit) and LinkedIn OAuth.
     """
     if not HAS_STREAMLIT:
         # For non-Streamlit contexts (e.g., tests), return a default
@@ -29,34 +30,47 @@ def get_user_id() -> str:
     if hasattr(st, 'session_state') and 'cached_user_id' in st.session_state:
         return st.session_state['cached_user_id']
 
-    # Safely check if user is logged in
-    try:
-        if hasattr(st, 'user') and hasattr(st.user, 'is_logged_in'):
-            if not st.user.is_logged_in:
-                raise ValueError("User is not logged in")
-    except (AttributeError, KeyError):
-        # If is_logged_in doesn't exist, continue (for Community Cloud compatibility)
-        pass
-
-    # Try to get user identifier safely
+    # Check if user is logged in via LinkedIn
     user_identifier = None
-    try:
-        if hasattr(st, 'user'):
-            if hasattr(st.user, 'email') and st.user.email:
-                user_identifier = st.user.email
-            elif hasattr(st.user, 'name') and st.user.name:
-                user_identifier = st.user.name
-            elif hasattr(st.user, 'id') and st.user.id:
-                user_identifier = str(st.user.id)
-            else:
-                # Fallback: generate hash from user object
-                try:
-                    user_str = str(st.user.__dict__)
-                    user_identifier = hashlib.md5(user_str.encode()).hexdigest()
-                except:
-                    pass
-    except (AttributeError, KeyError):
-        pass
+    if hasattr(st, 'session_state') and st.session_state.get('linkedin_authenticated'):
+        linkedin_user_info = st.session_state.get('linkedin_user_info', {})
+        # Try to get identifier from LinkedIn user info
+        if linkedin_user_info.get('email'):
+            user_identifier = f"linkedin_{linkedin_user_info['email']}"
+        elif linkedin_user_info.get('sub'):  # OpenID Connect subject identifier
+            user_identifier = f"linkedin_{linkedin_user_info['sub']}"
+        elif linkedin_user_info.get('name'):
+            user_identifier = f"linkedin_{linkedin_user_info['name']}"
+
+    # If not LinkedIn, try Google OAuth via Streamlit
+    if not user_identifier:
+        # Safely check if user is logged in
+        try:
+            if hasattr(st, 'user') and hasattr(st.user, 'is_logged_in'):
+                if not st.user.is_logged_in:
+                    raise ValueError("User is not logged in")
+        except (AttributeError, KeyError):
+            # If is_logged_in doesn't exist, continue (for Community Cloud compatibility)
+            pass
+
+        # Try to get user identifier safely
+        try:
+            if hasattr(st, 'user'):
+                if hasattr(st.user, 'email') and st.user.email:
+                    user_identifier = f"google_{st.user.email}"
+                elif hasattr(st.user, 'name') and st.user.name:
+                    user_identifier = f"google_{st.user.name}"
+                elif hasattr(st.user, 'id') and st.user.id:
+                    user_identifier = f"google_{str(st.user.id)}"
+                else:
+                    # Fallback: generate hash from user object
+                    try:
+                        user_str = str(st.user.__dict__)
+                        user_identifier = f"google_{hashlib.md5(user_str.encode()).hexdigest()}"
+                    except:
+                        pass
+        except (AttributeError, KeyError):
+            pass
 
     # If we couldn't get a user identifier, use session-based or default
     if not user_identifier:
