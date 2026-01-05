@@ -950,7 +950,6 @@ def main():
     with st.sidebar:
         # Quick save section
         st.header("💾 Quick Save")
-        st.markdown("Save information without uploading documents")
 
         with st.form(key="manual_save_form", clear_on_submit=True):
             info_to_save = st.text_area(
