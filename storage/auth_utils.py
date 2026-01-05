@@ -528,6 +528,9 @@ def render_linkedin_login_button(label: str = "Log in with LinkedIn", **button_k
     # Generate the LinkedIn auth URL
     auth_url = linkedin_login()
 
+    # Ensure the button takes the full container width unless overridden
+    button_kwargs.setdefault("use_container_width", True)
+
     if auth_url:
         # Use st.link_button for external redirect
         st.link_button(label, auth_url, **button_kwargs)
