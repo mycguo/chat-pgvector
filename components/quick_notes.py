@@ -8,28 +8,13 @@ import streamlit as st
 
 
 def render_quick_notes():
-    """Render quick notes button that opens in a new tab"""
+    """Render quick notes button"""
 
     # Quick Notes section in sidebar
     with st.sidebar:
 
-        # Button to open in new tab using custom HTML
-        st.markdown("""
-            <a href="/quick_notes" target="_blank" style="text-decoration: none;">
-                <button style="
-                    width: 100%;
-                    padding: 0.5rem 1rem;
-                    background-color: #FF4B4B;
-                    color: white;
-                    border: none;
-                    border-radius: 0.5rem;
-                    font-size: 1rem;
-                    cursor: pointer;
-                    font-weight: 500;
-                ">
-                    📝 Quick Notes (New Tab)
-                </button>
-            </a>
-        """, unsafe_allow_html=True)
+        # Button to navigate to Quick Notes page
+        if st.button("📝 Quick Notes", use_container_width=True, type="secondary"):
+            st.switch_page("pages/quick_notes.py")
 
-        st.caption("Opens in a new tab")
+        st.caption("Quick reference information")

@@ -1058,10 +1058,7 @@ def main():
 
     st.markdown("<div style='height:200px;'></div>", unsafe_allow_html=True)
     st.markdown("---")
-    if st.button("Log out", width="stretch"):
-        needs_rerun = not logout()  # logout() returns True for Google (handles redirect itself)
-        if needs_rerun:
-            st.rerun()  # Only rerun for LinkedIn logout
+    st.button("Log out", on_click=logout, width="stretch")
 
 if __name__ == "__main__":
     main()

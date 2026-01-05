@@ -1267,10 +1267,7 @@ def main():
     
     # Logout button
     st.divider()
-    if st.button("Log out"):
-        needs_rerun = not logout()  # logout() returns True for Google (handles redirect itself)
-        if needs_rerun:
-            st.rerun()  # Only rerun for LinkedIn logout
+    st.button("Log out", on_click=logout)
 
 
 if __name__ == "__main__":

@@ -201,12 +201,12 @@ def logout():
     Safely call st.logout if available.
     Clears ALL session state and authentication data for both Google and LinkedIn.
 
-    Returns:
-        True if using Google logout (which handles redirect), False if manual rerun needed
+    For LinkedIn: clears session and calls st.rerun()
+    For Google: clears session and calls st.logout() which handles redirect
     """
     if HAS_STREAMLIT:
         try:
-            # Check if logged in via LinkedIn
+            # Check if logged in via LinkedIn BEFORE clearing session state
             is_linkedin = st.session_state.get('auth_provider') == 'linkedin' or st.session_state.get('linkedin_authenticated')
 
             # Clear LinkedIn session if logged in via LinkedIn
@@ -232,13 +232,14 @@ def logout():
                 if key in st.session_state:
                     del st.session_state[key]
 
-            # If using Google OAuth, call st.logout which handles redirect automatically
-            # Otherwise, caller needs to call st.rerun()
-            if hasattr(st, 'logout') and not is_linkedin:
-                st.logout()
-                return True  # Google logout handles redirect
-
-            return False  # Manual rerun needed
+            # Handle logout based on provider
+            if is_linkedin:
+                # For LinkedIn, rerun to show login screen
+                st.rerun()
+            else:
+                # For Google OAuth, call st.logout which handles redirect automatically
+                if hasattr(st, 'logout'):
+                    st.logout()
         except (AttributeError, Exception):
             # Fallback: clear session state
             linkedin_logout()
@@ -261,8 +262,6 @@ def logout():
             for key in auth_keys_to_clear:
                 if key in st.session_state:
                     del st.session_state[key]
-
-            return False  # Manual rerun needed
 
 
 def render_login_button(label: str = "Log in with Google", **button_kwargs: Any) -> bool:
