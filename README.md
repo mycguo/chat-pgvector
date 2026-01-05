@@ -50,6 +50,18 @@ streamlit run app.py
 
 For detailed setup instructions, see [docs/PGVECTOR_SETUP.md](docs/PGVECTOR_SETUP.md).
 
+## 📥 REST API
+
+The Streamlit server now exposes a lightweight REST endpoint for browser extensions and automation tools.
+
+- `POST /api/jobs`
+  - **Body**: `{"job": {"company": "Acme", "title": "Staff Engineer", "jobUrl": "https://…"}, "notes": "applied via referral"}`
+  - **Required fields**: `company`, `title` (or `role`)
+  - **Optional fields**: `location`, `description`, `jobUrl`, `salaryRange`, `notes`
+  - **Response**: `{ "success": true, "application_id": "app_1234abcd", "company": "Acme", "role": "Staff Engineer" }`
+
+Set `JOB_SEARCH_API_USER_ID` to control which user bucket receives API-submitted jobs (defaults to `default_user`).
+
 # tech stack
 ## streamlit: 
 web framework

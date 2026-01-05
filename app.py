@@ -17,9 +17,14 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from ai.web_search import search_web, format_search_results, is_search_needed, extract_search_query
 import boto3
 
+from api.jobs_api import register_jobs_api_route
+
 # Add parent directory to path
 sys.path.insert(0, '.')
 from components.quick_notes import render_quick_notes
+
+# Register REST endpoint for browser extensions
+register_jobs_api_route()
 
 # Note: Google API key is automatically picked up by langchain_google_genai
 # No explicit configuration needed - it uses GOOGLE_API_KEY environment variable

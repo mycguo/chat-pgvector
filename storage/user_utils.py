@@ -34,9 +34,9 @@ def get_user_id() -> str:
     user_identifier = None
     if hasattr(st, 'session_state') and st.session_state.get('linkedin_authenticated'):
         linkedin_user_info = st.session_state.get('linkedin_user_info', {})
-        # Try to get identifier from LinkedIn user info
+        # Try to get identifier from LinkedIn user info (prefer email to keep legacy IDs)
         if linkedin_user_info.get('email'):
-            user_identifier = f"linkedin_{linkedin_user_info['email']}"
+            user_identifier = linkedin_user_info['email']
         elif linkedin_user_info.get('sub'):  # OpenID Connect subject identifier
             user_identifier = f"linkedin_{linkedin_user_info['sub']}"
         elif linkedin_user_info.get('name'):
@@ -57,7 +57,7 @@ def get_user_id() -> str:
         try:
             if hasattr(st, 'user'):
                 if hasattr(st.user, 'email') and st.user.email:
-                    user_identifier = f"google_{st.user.email}"
+                    user_identifier = st.user.email
                 elif hasattr(st.user, 'name') and st.user.name:
                     user_identifier = f"google_{st.user.name}"
                 elif hasattr(st.user, 'id') and st.user.id:
@@ -161,4 +161,3 @@ def get_user_collection_name(base_name: str = "personal_assistant", user_id: str
     sanitized_user_id = re.sub(r'_+', '_', sanitized_user_id).strip('_')
     
     return f"{base_name}_{sanitized_user_id}"
-
