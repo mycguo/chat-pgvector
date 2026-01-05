@@ -29,7 +29,7 @@
     ],
     "host_permissions": [
         "https://www.linkedin.com/*",
-        "http://localhost:8501/*"
+        "http://localhost:8501/api/jobs"
     ],
     "content_scripts": [
         {
@@ -37,7 +37,6 @@
                 "https://www.linkedin.com/jobs/*"
             ],
             "js": [
-                "src/config.js",
                 "src/contentScript.js"
             ],
             "run_at": "document_idle"

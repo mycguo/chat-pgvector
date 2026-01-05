@@ -34,9 +34,9 @@ def get_user_id() -> str:
     user_identifier = None
     if hasattr(st, 'session_state') and st.session_state.get('linkedin_authenticated'):
         linkedin_user_info = st.session_state.get('linkedin_user_info', {})
-        # Try to get identifier from LinkedIn user info (prefer email to keep legacy IDs)
+        # Keep LinkedIn data separate from Google by namespacing the identifier
         if linkedin_user_info.get('email'):
-            user_identifier = linkedin_user_info['email']
+            user_identifier = f"linkedin_{linkedin_user_info['email']}"
         elif linkedin_user_info.get('sub'):  # OpenID Connect subject identifier
             user_identifier = f"linkedin_{linkedin_user_info['sub']}"
         elif linkedin_user_info.get('name'):

@@ -1,8 +1,57 @@
-/* global EXTENSION_CONFIG, DEFAULT_EXTENSION_SETTINGS, getExtensionSettings, saveExtensionSettings */
-importScripts('src/config.js');
+const DEFAULT_EXTENSION_SETTINGS = {
+    apiEndpoint: "http://localhost:8501/api/jobs",
+    apiKey: "",
+    sourceLabel: "linkedin-job-page"
+};
+
+const EXTENSION_CONFIG = Object.freeze({
+    defaultIntakeUrl: DEFAULT_EXTENSION_SETTINGS.apiEndpoint,
+    storageKey: "jobCollectorSettings",
+    metadataVersion: 1
+});
+
+function hasSyncStorage() {
+    return Boolean(globalThis.chrome && chrome.storage && chrome.storage.sync);
+}
+
+function getExtensionSettings() {
+    return new Promise((resolve) => {
+        if (!hasSyncStorage()) {
+            resolve({ ...DEFAULT_EXTENSION_SETTINGS });
+            return;
+        }
+
+        chrome.storage.sync.get(DEFAULT_EXTENSION_SETTINGS, (stored) => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                console.warn('Job Collector: storage read failed', chrome.runtime.lastError);
+                resolve({ ...DEFAULT_EXTENSION_SETTINGS });
+                return;
+            }
+
+            resolve({ ...DEFAULT_EXTENSION_SETTINGS, ...stored });
+        });
+    });
+}
+
+function saveExtensionSettings(updates) {
+    return new Promise((resolve, reject) => {
+        if (!hasSyncStorage()) {
+            reject(new Error('Chrome storage is unavailable'));
+            return;
+        }
+
+        chrome.storage.sync.set(updates, () => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                reject(chrome.runtime.lastError);
+                return;
+            }
+
+            resolve({ ...updates });
+        });
+    });
+}
 
 const JOB_SAVE_EVENT = 'SAVE_JOB_DETAILS';
-const JOB_DETAILS_TELEMETRY = 'JOB_DETAILS_DETECTED';
 
 async function ensureDefaultsInitialized() {
     if (!chrome.storage || !chrome.storage.sync) {
@@ -52,10 +101,12 @@ async function submitJobDetails(payload) {
     }
 
     const body = {
-        job: payload.job,
+        job_url: payload.jobUrl,
+        page_title: payload.pageTitle,
+        page_content: payload.pageContent,
         notes: payload.notes || '',
         source: settings.sourceLabel || DEFAULT_EXTENSION_SETTINGS.sourceLabel,
-        capturedAt: new Date().toISOString()
+        captured_at: new Date().toISOString()
     };
 
     const response = await fetch(endpoint, {
@@ -92,13 +143,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 sendResponse({ success: false, error: error.message });
             });
         return true; // keep the channel open for async sendResponse
-    }
-
-    if (message.type === JOB_DETAILS_TELEMETRY) {
-        // Passive telemetry for debugging; nothing persisted for now
-        console.debug('Job Collector: telemetry', message.payload?.job?.title);
-        sendResponse({ acknowledged: true });
-        return false;
     }
 
     return false;

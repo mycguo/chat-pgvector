@@ -4,8 +4,9 @@ Capture LinkedIn job details from the currently viewed job listing and send them
 
 ## Features
 
-- Automatically parses title, company, location, job description, apply link, and metadata from LinkedIn job pages.
-- Popup preview of the extracted job plus optional notes field before submission.
+- Captures the current LinkedIn job page text and sends it to the backend API.
+- Backend API (GPT-mini) extracts company, role, and other metadata before inserting into the Job Search app.
+- Simple popup with a single "Add to my applications" action plus optional notes.
 - Configurable API endpoint, API key, and source label via the options page.
 - Background service worker handles authenticated POST requests to the Job Search app.
 
@@ -36,7 +37,7 @@ extension/
 1. Open `chrome://extensions` → enable **Developer mode**.
 2. Click **Load unpacked** and select the `extension/` folder.
 3. (Optional) Open the extension card → **Extension options** to configure the API endpoint and API key. Defaults point to `http://localhost:8501/api/jobs`.
-4. Visit `https://www.linkedin.com/jobs/…`, open the extension popup, confirm the job data, add notes, then click **Save job to Job Search**.
+4. Visit `https://www.linkedin.com/jobs/…`, open the extension popup, add optional notes, and click **Add to my applications**.
 
 ## Backend Expectations
 
@@ -61,7 +62,7 @@ The background worker posts JSON payloads like:
 }
 ```
 
-Ensure the Streamlit app exposes an endpoint (default `POST /api/jobs`) that accepts the payload above and persists it into the Job Search data store. The provided Streamlit server already registers this route; set the `JOB_SEARCH_API_USER_ID` environment variable if you want API submissions to be stored under a specific user profile (defaults to `default_user`).
+Ensure the Streamlit app exposes an endpoint (default `POST /api/jobs`) that accepts `{ job_url, page_content, notes }`, runs GPT-mini to extract job details, and persists them. The provided Streamlit server already registers this route; set the `JOB_SEARCH_API_USER_ID` environment variable if you want API submissions to be stored under a specific user profile (defaults to `default_user`).
 
 ## Customization Tips
 

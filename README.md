@@ -55,10 +55,9 @@ For detailed setup instructions, see [docs/PGVECTOR_SETUP.md](docs/PGVECTOR_SETU
 The Streamlit server now exposes a lightweight REST endpoint for browser extensions and automation tools.
 
 - `POST /api/jobs`
-  - **Body**: `{"job": {"company": "Acme", "title": "Staff Engineer", "jobUrl": "https://…"}, "notes": "applied via referral"}`
-  - **Required fields**: `company`, `title` (or `role`)
-  - **Optional fields**: `location`, `description`, `jobUrl`, `salaryRange`, `notes`
-  - **Response**: `{ "success": true, "application_id": "app_1234abcd", "company": "Acme", "role": "Staff Engineer" }`
+  - **Body**: `{"job_url": "https://www.linkedin.com/jobs/view/...", "page_content": "<full job text>", "notes": "optional"}`
+  - The backend uses GPT-Mini (via NVIDIA endpoints) to extract company + role + other metadata before persisting the application.
+  - **Response**: `{ "success": true, "application_id": "app_1234abcd", "company": "Acme", "role": "Staff Engineer", "parsed_job": {...} }`
 
 Set `JOB_SEARCH_API_USER_ID` to control which user bucket receives API-submitted jobs (defaults to `default_user`).
 

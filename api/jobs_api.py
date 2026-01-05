@@ -14,6 +14,7 @@ from streamlit.web.server.server_util import make_url_path_regex
 
 from models.application import create_application
 from storage.json_db import JobSearchDB
+from ai.job_parser import extract_job_details
 
 LOGGER = logging.getLogger(__name__)
 
@@ -36,6 +37,10 @@ def _find_tornado_app() -> Optional[tornado.web.Application]:
 class JobsApiHandler(tornado.web.RequestHandler):
     """Handle POST requests from the Chrome extension."""
 
+    def check_xsrf_cookie(self) -> None:  # type: ignore[override]
+        """Disable XSRF protection for API requests."""
+        return
+
     def set_default_headers(self) -> None:
         # CORS: allow extension origins and simple curl testing
         self.set_header("Access-Control-Allow-Origin", "*")
@@ -52,28 +57,39 @@ class JobsApiHandler(tornado.web.RequestHandler):
         self.finish()
 
     def post(self, *args: Any, **kwargs: Any) -> None:  # type: ignore[override]
+        LOGGER.info(
+            "Incoming /api/jobs request: ip=%s, headers=%s",
+            self.request.remote_ip,
+            dict(self.request.headers),
+        )
         payload = self._parse_body()
         if payload is None:
-            return
-
-        job_data = self._extract_job(payload)
-        if job_data is None:
-            self._write_error(400, "Both company and role/title are required.")
             return
 
         notes_value = payload.get("notes")
         if isinstance(notes_value, str):
             notes_value = notes_value.strip() or None
 
+        job_url = payload.get("job_url") or payload.get("jobUrl")
+
+        page_content = payload.get("page_content") or payload.get("pageContent")
+        if not page_content:
+            self._write_error(400, "page_content is required.")
+            return
+
         try:
             db = JobSearchDB(user_id=_resolve_user_id(payload))
+            parsed = extract_job_details(page_content, job_url=job_url)
+            if not parsed.get("company") or not parsed.get("role"):
+                self._write_error(422, "Failed to extract company or role from job content.")
+                return
             application = create_application(
-                company=job_data["company"],
-                role=job_data["role"],
-                job_url=job_data.get("job_url"),
-                job_description=job_data.get("job_description"),
-                location=job_data.get("location"),
-                salary_range=job_data.get("salary_range"),
+                company=parsed["company"],
+                role=parsed["role"],
+                job_url=job_url or parsed.get("apply_url"),
+                job_description=parsed.get("description"),
+                location=parsed.get("location"),
+                salary_range=parsed.get("salary_range"),
                 notes=notes_value,
             )
             db.add_application(application)
@@ -91,6 +107,7 @@ class JobsApiHandler(tornado.web.RequestHandler):
                 "application_id": application.id,
                 "company": application.company,
                 "role": application.role,
+                "parsed_job": parsed,
             }
         )
 
@@ -104,38 +121,6 @@ class JobsApiHandler(tornado.web.RequestHandler):
         except json.JSONDecodeError:
             self._write_error(400, "Invalid JSON payload.")
             return None
-
-    def _extract_job(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        job_section = payload.get("job") or {}
-
-        company = (job_section.get("company") or payload.get("company") or "").strip()
-        role = (
-            job_section.get("role")
-            or job_section.get("title")
-            or payload.get("role")
-            or ""
-        ).strip()
-
-        if not company or not role:
-            return None
-
-        job_details: Dict[str, Any] = {
-            "company": company,
-            "role": role,
-        }
-
-        optional_fields = {
-            "job_url": job_section.get("jobUrl") or job_section.get("jobURL"),
-            "job_description": job_section.get("description"),
-            "location": job_section.get("location"),
-            "salary_range": job_section.get("salaryRange") or job_section.get("salary"),
-        }
-
-        for key, value in optional_fields.items():
-            if value:
-                job_details[key] = value
-
-        return job_details
 
     def _write_error(self, status_code: int, message: str) -> None:
         self.set_status(status_code)

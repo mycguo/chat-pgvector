@@ -34,21 +34,13 @@ header p {
     color: #475569;
 }
 
-#job-summary,
+#page-info,
 #notes-section {
     background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 12px;
-}
-
-.summary-field {
-    margin-bottom: 8px;
-}
-
-.summary-field:last-child {
-    margin-bottom: 0;
 }
 
 .label {
@@ -63,6 +55,12 @@ header p {
     margin: 0;
     font-size: 0.95rem;
     color: #0f172a;
+}
+
+.subtext {
+    color: #475569;
+    font-size: 0.8rem;
+    word-break: break-all;
 }
 
 textarea {

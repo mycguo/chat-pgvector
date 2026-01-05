@@ -1,41 +1,36 @@
-const REQUEST_EVENT = 'REQUEST_JOB_DETAILS';
+const REQUEST_EVENT = 'REQUEST_PAGE_CONTENT';
 const SAVE_EVENT = 'SAVE_JOB_DETAILS';
 
-const titleEl = document.getElementById('job-title');
-const companyEl = document.getElementById('job-company');
-const locationEl = document.getElementById('job-location');
-const workplaceEl = document.getElementById('job-workplace');
+const pageTitleEl = document.getElementById('page-title');
+const pageUrlEl = document.getElementById('page-url');
 const notesEl = document.getElementById('job-notes');
 const saveButton = document.getElementById('save-job');
 const statusMessage = document.getElementById('status-message');
 
-let currentJob = null;
+let currentPageData = null;
 
 function setStatus(message, type = 'info') {
     statusMessage.textContent = message;
     statusMessage.dataset.variant = type;
 }
 
-function renderJob(job) {
-    if (!job) {
-        titleEl.textContent = 'No job detected';
-        companyEl.textContent = '-';
-        locationEl.textContent = '-';
-        workplaceEl.textContent = '-';
+function renderPageInfo(data) {
+    if (!data) {
+        pageTitleEl.textContent = 'No job detected';
+        pageUrlEl.textContent = '';
         saveButton.disabled = true;
+        currentPageData = null;
         return;
     }
 
-    titleEl.textContent = job.title || 'Unknown title';
-    companyEl.textContent = job.company || 'Unknown company';
-    locationEl.textContent = job.location || 'Unknown location';
-    workplaceEl.textContent = job.workplaceType || 'Not specified';
+    pageTitleEl.textContent = data.title || 'LinkedIn job page';
+    pageUrlEl.textContent = data.url || '';
     saveButton.disabled = false;
-    currentJob = job;
+    currentPageData = data;
 }
 
-async function requestJobFromActiveTab() {
-    setStatus('Detecting job details...');
+async function requestPageContent() {
+    setStatus('Capturing page content...');
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) {
@@ -43,30 +38,38 @@ async function requestJobFromActiveTab() {
         return;
     }
 
-    if (!/linkedin\.com\/jobs/i.test(tab.url || '')) {
-        setStatus('Visit a LinkedIn job page to capture details.', 'warning');
-        return;
-    }
-
     chrome.tabs.sendMessage(tab.id, { type: REQUEST_EVENT }, (response) => {
         if (chrome.runtime.lastError) {
             console.warn('Job Collector: unable to reach content script', chrome.runtime.lastError);
-            setStatus('Open a job post and refresh the page.');
+            setStatus('Reload the LinkedIn job page and try again.');
             return;
         }
 
         if (!response || !response.success) {
-            setStatus('Unable to extract job details yet. Scroll the page and try again.', 'warning');
+            setStatus('Unable to read the page yet. Scroll or reload and retry.', 'warning');
             return;
         }
 
-        renderJob(response.job);
-        setStatus('Ready to send job details.');
+        renderPageInfo(response.data);
+        if (!/linkedin\.com\/jobs/i.test(response.data?.url || '')) {
+            setStatus('This extension only works on LinkedIn job pages.', 'warning');
+            saveButton.disabled = true;
+            return;
+        }
+
+        if (!response.data?.fullText) {
+            setStatus('Could not capture enough job text. Scroll the page and try again.', 'warning');
+            saveButton.disabled = true;
+            return;
+        }
+
+        setStatus('Ready to add this job.');
     });
 }
 
 function handleSaveClick() {
-    if (!currentJob) {
+    if (!currentPageData || !currentPageData.fullText) {
+        setStatus('Job content not available yet.', 'warning');
         return;
     }
 
@@ -74,7 +77,9 @@ function handleSaveClick() {
     setStatus('Sending job to Job Search...');
 
     const payload = {
-        job: currentJob,
+        jobUrl: currentPageData.url,
+        pageTitle: currentPageData.title,
+        pageContent: currentPageData.fullText,
         notes: notesEl.value.trim()
     };
 
@@ -91,12 +96,12 @@ function handleSaveClick() {
             return;
         }
 
-        setStatus('Job saved successfully! 🎉', 'success');
+        setStatus('Job added successfully! 🎉', 'success');
         notesEl.value = '';
     });
 }
 
 saveButton.addEventListener('click', handleSaveClick);
 document.addEventListener('DOMContentLoaded', () => {
-    requestJobFromActiveTab();
+    requestPageContent();
 });
