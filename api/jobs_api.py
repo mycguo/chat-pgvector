@@ -82,7 +82,14 @@ class JobsApiHandler(tornado.web.RequestHandler):
             db = JobSearchDB(user_id=user_id)
             parsed = extract_job_details(page_content, job_url=job_url)
             if not parsed.get("company") or not parsed.get("role"):
-                self._write_error(422, "Failed to extract company or role from job content.")
+                LOGGER.warning(
+                    "Extraction failed for job: url=%s. Parsed fields: %s",
+                    job_url,
+                    parsed,
+                )
+                self._write_error(
+                    422, "Failed to extract company or role from job content."
+                )
                 return
             status_value = (payload.get("status") or "tracking").lower()
             application = create_application(

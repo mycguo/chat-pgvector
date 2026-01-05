@@ -14,8 +14,10 @@ LOGGER = logging.getLogger(__name__)
 _PROMPT_TEMPLATE = PromptTemplate(
     input_variables=["job_url", "job_content"],
     template=(
-        "You are a structured data extraction assistant.\n"
-        "Extract the job application details from the provided job page content.\n"
+        "You are a structured data extraction assistant specialized in job postings.\n"
+        "Extract the job application details from the provided job page content. "
+        "LinkedIn pages often contain multiple jobs in a list; focus on the primary or currently selected job details.\n"
+        "Look carefully for 'company' and 'role' (job title) symbols or text in headers or side panels.\n"
         "Return ONLY valid JSON with the following keys: company, role, location, description, apply_url, job_id, salary_range.\n"
         "If a field is missing, set it to null.\n"
         "Job URL: {job_url}\n"
@@ -34,7 +36,7 @@ def extract_job_details(
     job_url: Optional[str] = None,
     *,
     model_name: str = "gemini-2.5-flash",
-    max_chars: int = 8000,
+    max_chars: int = 32000,
 ) -> Dict[str, Any]:
     """Use the chat model to extract job fields from raw content."""
 
