@@ -92,11 +92,14 @@ def show_company_card(company_dict: dict, db: JobSearchDB):
     """Display a company as a card"""
     company = Company.from_dict(company_dict)
 
-    with st.container():
-        col1, col2, col3, col4 = st.columns([3, 2, 1, 1])
+    with st.container(border=True):
+        col1, col2, col3 = st.columns([5, 2, 2])
 
         with col1:
-            st.markdown(f"**{company.get_status_emoji()} {company.name}**")
+            # Make the Company Name clickable
+            if st.button(f"**{company.get_status_emoji()} {company.name}**", key=f"view_company_{company.id}", use_container_width=True):
+                st.session_state['view_company_id'] = company.id
+                st.rerun()
 
             # Info badges
             badges = []
@@ -116,14 +119,8 @@ def show_company_card(company_dict: dict, db: JobSearchDB):
                 st.caption(f"📝 {len(company.application_ids)} application(s)")
 
         with col3:
-            st.caption(f"**{company.status.title()}**")
-
-        with col4:
-            if st.button("View", key=f"view_company_{company.id}", width="stretch"):
-                st.session_state['view_company_id'] = company.id
-                st.rerun()
-
-        st.divider()
+            st.write("**Status**")
+            st.markdown(f"**{company.status.title()}**")
 
 
 def show_company_detail(db: JobSearchDB, company_id: str):

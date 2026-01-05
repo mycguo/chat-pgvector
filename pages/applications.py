@@ -67,15 +67,65 @@ def render_contact(label: str, contact: Optional[ContactLink]):
         st.write(f"**{label}:** {display_name}")
 
 
+def apply_card_styles():
+    """Inject CSS for color-coded job cards"""
+    st.markdown("""
+        <style>
+            /* Base button styling for cards to make them look like cards */
+            div.job-card-wrapper button {
+                text-align: left !important;
+                display: block !important;
+                border-radius: 8px !important;
+                padding: 15px !important;
+                margin-bottom: 12px !important;
+                background-color: white !important;
+                border: 1px solid #eee !important;
+                border-left: 5px solid #ccc !important;
+                transition: transform 0.1s ease, box-shadow 0.1s ease !important;
+                height: auto !important;
+                min-height: 80px !important;
+            }
+            
+            div.job-card-wrapper button:hover {
+                transform: translateY(-2px) !important;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+                border-color: #ddd !important;
+            }
+
+            /* Stage-specific colors */
+            .card-tracking button { background-color: #f4f0ff !important; border-left-color: #7c3aed !important; }
+            .card-applied button { background-color: #f0f7ff !important; border-left-color: #4285F4 !important; }
+            .card-screening button { background-color: #fff8e6 !important; border-left-color: #FFA500 !important; }
+            .card-interview button { background-color: #e8f4fd !important; border-left-color: #00BFFF !important; }
+            .card-offer button { background-color: #e8f8e8 !important; border-left-color: #28a745 !important; }
+            .card-accepted button { background-color: #f0fff4 !important; border-left-color: #10b981 !important; }
+            .card-rejected button { background-color: #f8fafc !important; border-left-color: #64748b !important; }
+            .card-withdrawn button { background-color: #f8fafc !important; border-left-color: #333 !important; }
+            
+            /* Ensure text stays dark readable */
+            div.job-card-wrapper p, div.job-card-wrapper span, div.job-card-wrapper div {
+                color: #333 !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+
 def show_application_card(app: Application, db: JobSearchDB):
     """Display an application as a card with actions"""
 
-    with st.container():
-        col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
+    apply_card_styles()
+    with st.container(border=True):
+        col1, col2, col3 = st.columns([5, 2, 2])
 
         with col1:
-            st.markdown(f"### {app.get_status_emoji()} **{app.company}**")
-            st.markdown(f"**{app.role}**")
+            # Wrap button in a colored div
+            st.markdown(f'<div class="job-card-wrapper card-{app.status}">', unsafe_allow_html=True)
+            button_label = f"{app.get_status_emoji()} {app.company}\n\n{app.role}"
+            if st.button(button_label, key=f"click_card_{app.id}", use_container_width=True):
+                st.session_state['view_application_id'] = app.id
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+            
             if app.location:
                 st.caption(f"📍 {app.location}")
 
@@ -99,11 +149,6 @@ def show_application_card(app: Application, db: JobSearchDB):
                 "withdrawn": "⚫"
             }
             st.markdown(f"{status_colors.get(app.status, '⚪')} {app.get_display_status()}")
-
-        with col4:
-            if st.button("View", key=f"view_{app.id}"):
-                st.session_state['view_application_id'] = app.id
-                st.rerun()
 
         # Expandable details
         with st.expander("📋 Details & AI Analysis"):
@@ -1103,20 +1148,17 @@ def main():
             st.markdown(f"### 📌 Tracking")
             st.markdown(f"<p style='color: #666; font-size: 14px;'>{len(tracking_apps)} opportunity(s)</p>", unsafe_allow_html=True)
             st.markdown("---")
+            apply_card_styles()
 
             for app in tracking_apps:
                 with st.container():
-                    st.markdown(f"""
-                        <div style='background-color: #f4f0ff; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #7c3aed;'>
-                            <p style='margin: 0; font-weight: 600; font-size: 16px;'>{app.company}</p>
-                            <p style='margin: 5px 0; color: #666; font-size: 14px;'>{app.role}</p>
-                            <p style='margin: 8px 0 0 0; color: #999; font-size: 12px;'>📅 {app.applied_date}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                    if st.button("View Details", key=f"view_tracking_{app.id}", use_container_width=True):
+                    # Card button with all info
+                    st.markdown(f'<div class="job-card-wrapper card-tracking">', unsafe_allow_html=True)
+                    button_label = f"**{app.company}**\n\n{app.role}\n\n📅 {app.applied_date}"
+                    if st.button(button_label, key=f"view_tracking_{app.id}", use_container_width=True):
                         st.session_state['view_application_id'] = app.id
                         st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
         # Applied Column
         with col2:
@@ -1126,17 +1168,13 @@ def main():
 
             for app in applied_apps:
                 with st.container():
-                    st.markdown(f"""
-                        <div style='background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #4285F4;'>
-                            <p style='margin: 0; font-weight: 600; font-size: 16px;'>{app.company}</p>
-                            <p style='margin: 5px 0; color: #666; font-size: 14px;'>{app.role}</p>
-                            <p style='margin: 8px 0 0 0; color: #999; font-size: 12px;'>📅 {app.applied_date}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                    if st.button("View Details", key=f"view_applied_{app.id}", use_container_width=True):
+                    # Card button with all info
+                    st.markdown(f'<div class="job-card-wrapper card-applied">', unsafe_allow_html=True)
+                    button_label = f"**{app.company}**\n\n{app.role}\n\n📅 {app.applied_date}"
+                    if st.button(button_label, key=f"view_applied_{app.id}", use_container_width=True):
                         st.session_state['view_application_id'] = app.id
                         st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
         # Screening Column
         with col3:
@@ -1146,17 +1184,13 @@ def main():
 
             for app in screening_apps:
                 with st.container():
-                    st.markdown(f"""
-                        <div style='background-color: #fff8e6; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #FFA500;'>
-                            <p style='margin: 0; font-weight: 600; font-size: 16px;'>{app.company}</p>
-                            <p style='margin: 5px 0; color: #666; font-size: 14px;'>{app.role}</p>
-                            <p style='margin: 8px 0 0 0; color: #999; font-size: 12px;'>📅 {app.applied_date}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                    if st.button("View Details", key=f"view_screening_{app.id}", use_container_width=True):
+                    # Card button with all info
+                    st.markdown(f'<div class="job-card-wrapper card-screening">', unsafe_allow_html=True)
+                    button_label = f"**{app.company}**\n\n{app.role}\n\n📅 {app.applied_date}"
+                    if st.button(button_label, key=f"view_screening_{app.id}", use_container_width=True):
                         st.session_state['view_application_id'] = app.id
                         st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
         # Interview Column
         with col4:
@@ -1166,17 +1200,13 @@ def main():
 
             for app in interview_apps:
                 with st.container():
-                    st.markdown(f"""
-                        <div style='background-color: #e8f4fd; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #00BFFF;'>
-                            <p style='margin: 0; font-weight: 600; font-size: 16px;'>{app.company}</p>
-                            <p style='margin: 5px 0; color: #666; font-size: 14px;'>{app.role}</p>
-                            <p style='margin: 8px 0 0 0; color: #999; font-size: 12px;'>📅 {app.applied_date}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                    if st.button("View Details", key=f"view_interview_{app.id}", use_container_width=True):
+                    # Card button with all info
+                    st.markdown(f'<div class="job-card-wrapper card-interview">', unsafe_allow_html=True)
+                    button_label = f"**{app.company}**\n\n{app.role}\n\n📅 {app.applied_date}"
+                    if st.button(button_label, key=f"view_interview_{app.id}", use_container_width=True):
                         st.session_state['view_application_id'] = app.id
                         st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
         # Offer Column
         with col5:
@@ -1186,17 +1216,13 @@ def main():
 
             for app in offer_apps:
                 with st.container():
-                    st.markdown(f"""
-                        <div style='background-color: #e8f8e8; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #28a745;'>
-                            <p style='margin: 0; font-weight: 600; font-size: 16px;'>{app.company}</p>
-                            <p style='margin: 5px 0; color: #666; font-size: 14px;'>{app.role}</p>
-                            <p style='margin: 8px 0 0 0; color: #999; font-size: 12px;'>📅 {app.applied_date}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                    if st.button("View Details", key=f"view_offer_{app.id}", use_container_width=True):
+                    # Card button with all info
+                    st.markdown(f'<div class="job-card-wrapper card-offer">', unsafe_allow_html=True)
+                    button_label = f"**{app.company}**\n\n{app.role}\n\n📅 {app.applied_date}"
+                    if st.button(button_label, key=f"view_offer_{app.id}", use_container_width=True):
                         st.session_state['view_application_id'] = app.id
                         st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
     # Display accepted offers
     if len(accepted_applications) > 0:
