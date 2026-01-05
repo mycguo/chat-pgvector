@@ -80,7 +80,7 @@ def show_application_card(app: Application, db: JobSearchDB):
                 st.caption(f"📍 {app.location}")
 
         with col2:
-            st.write("**Applied**")
+            st.write("**Tracking/Applied**")
             st.write(app.applied_date)
             days = app.get_days_since_applied()
             if days > 0:
@@ -89,6 +89,7 @@ def show_application_card(app: Application, db: JobSearchDB):
         with col3:
             st.write("**Status**")
             status_colors = {
+                "tracking": "📌",
                 "applied": "🔵",
                 "screening": "🟡",
                 "interview": "🟠",
@@ -258,7 +259,7 @@ def show_application_detail(db: JobSearchDB, app_id: str):
 
     with col1:
         st.title(f"{app.get_status_emoji()} {app.company} - {app.role}")
-        st.caption(f"Applied on {app.applied_date} • Status: {app.get_display_status()}")
+        st.caption(f"Tracking/Applied on {app.applied_date} • Status: {app.get_display_status()}")
 
     with col2:
         if st.button("← Back to List"):
@@ -622,13 +623,14 @@ def show_application_detail(db: JobSearchDB, app_id: str):
                 new_location = st.text_input("Location", value=app.location or "")
 
             with col2:
+                status_options = ["tracking", "applied", "screening", "interview", "offer", "accepted", "rejected", "withdrawn"]
                 new_status = st.selectbox(
                     "Status",
-                    ["applied", "screening", "interview", "offer", "accepted", "rejected", "withdrawn"],
-                    index=["applied", "screening", "interview", "offer", "accepted", "rejected", "withdrawn"].index(app.status)
+                    status_options,
+                    index=status_options.index(app.status)
                 )
                 new_applied_date = st.date_input(
-                    "Applied Date",
+                    "Tracking/Applied Date",
                     value=datetime.strptime(app.applied_date, "%Y-%m-%d")
                 )
                 new_salary_range = st.text_input("Salary Range", value=app.salary_range or "")
@@ -919,11 +921,13 @@ def main():
                 location = st.text_input("Location", placeholder="e.g., San Francisco, CA or Remote")
 
             with col2:
+                new_status_options = ["tracking", "applied", "screening", "interview", "offer"]
                 status = st.selectbox(
                     "Status",
-                    ["applied", "screening", "interview", "offer"]
+                    new_status_options,
+                    index=0
                 )
-                applied_date = st.date_input("Applied Date", value=datetime.now())
+                applied_date = st.date_input("Tracking/Applied Date", value=datetime.now())
                 salary_range = st.text_input("Salary Range", placeholder="e.g., $150k-$200k")
 
             job_url = st.text_input("Job URL", placeholder="https://...")
@@ -1078,6 +1082,7 @@ def main():
     archived_applications = [app for app in applications if app.status in ["rejected", "withdrawn"]]
 
     # Group active applications by status
+    tracking_apps = [app for app in active_applications if app.status == "tracking"]
     applied_apps = [app for app in active_applications if app.status == "applied"]
     screening_apps = [app for app in active_applications if app.status == "screening"]
     interview_apps = [app for app in active_applications if app.status == "interview"]
@@ -1090,11 +1095,31 @@ def main():
         else:
             st.info("🎯 No applications yet. Add your first one above!")
     else:
-        # Create 4 columns for Kanban board
-        col1, col2, col3, col4 = st.columns(4)
+        # Create columns for Kanban board
+        col1, col2, col3, col4, col5 = st.columns(5)
+
+        # Tracking Column
+        with col1:
+            st.markdown(f"### 📌 Tracking")
+            st.markdown(f"<p style='color: #666; font-size: 14px;'>{len(tracking_apps)} opportunity(s)</p>", unsafe_allow_html=True)
+            st.markdown("---")
+
+            for app in tracking_apps:
+                with st.container():
+                    st.markdown(f"""
+                        <div style='background-color: #f4f0ff; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #7c3aed;'>
+                            <p style='margin: 0; font-weight: 600; font-size: 16px;'>{app.company}</p>
+                            <p style='margin: 5px 0; color: #666; font-size: 14px;'>{app.role}</p>
+                            <p style='margin: 8px 0 0 0; color: #999; font-size: 12px;'>📅 {app.applied_date}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    if st.button("View Details", key=f"view_tracking_{app.id}", use_container_width=True):
+                        st.session_state['view_application_id'] = app.id
+                        st.rerun()
 
         # Applied Column
-        with col1:
+        with col2:
             st.markdown(f"### 📩 Applied")
             st.markdown(f"<p style='color: #666; font-size: 14px;'>{len(applied_apps)} application(s)</p>", unsafe_allow_html=True)
             st.markdown("---")
@@ -1114,7 +1139,7 @@ def main():
                         st.rerun()
 
         # Screening Column
-        with col2:
+        with col3:
             st.markdown(f"### 📧 Screening")
             st.markdown(f"<p style='color: #666; font-size: 14px;'>{len(screening_apps)} application(s)</p>", unsafe_allow_html=True)
             st.markdown("---")
@@ -1134,7 +1159,7 @@ def main():
                         st.rerun()
 
         # Interview Column
-        with col3:
+        with col4:
             st.markdown(f"### 🎤 Interview")
             st.markdown(f"<p style='color: #666; font-size: 14px;'>{len(interview_apps)} application(s)</p>", unsafe_allow_html=True)
             st.markdown("---")
@@ -1154,7 +1179,7 @@ def main():
                         st.rerun()
 
         # Offer Column
-        with col4:
+        with col5:
             st.markdown(f"### 🎁 Offer")
             st.markdown(f"<p style='color: #666; font-size: 14px;'>{len(offer_apps)} application(s)</p>", unsafe_allow_html=True)
             st.markdown("---")

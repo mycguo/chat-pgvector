@@ -1,7 +1,8 @@
 const DEFAULT_EXTENSION_SETTINGS = {
     apiEndpoint: "http://localhost:8501/api/jobs",
     apiKey: "",
-    sourceLabel: "linkedin-job-page"
+    sourceLabel: "linkedin-job-page",
+    apiUserId: ""
 };
 
 const EXTENSION_CONFIG = Object.freeze({
@@ -23,7 +24,7 @@ function getExtensionSettings() {
 
         chrome.storage.sync.get(DEFAULT_EXTENSION_SETTINGS, (stored) => {
             if (chrome.runtime && chrome.runtime.lastError) {
-                console.warn('Job Collector: storage read failed', chrome.runtime.lastError);
+                console.warn('Job Tracker: storage read failed', chrome.runtime.lastError);
                 resolve({ ...DEFAULT_EXTENSION_SETTINGS });
                 return;
             }
@@ -61,7 +62,7 @@ async function ensureDefaultsInitialized() {
     return new Promise((resolve) => {
         chrome.storage.sync.get(DEFAULT_EXTENSION_SETTINGS, (stored) => {
             if (chrome.runtime.lastError) {
-                console.warn('Job Collector: unable to read defaults', chrome.runtime.lastError);
+                console.warn('Job Tracker: unable to read defaults', chrome.runtime.lastError);
                 resolve();
                 return;
             }
@@ -80,7 +81,7 @@ async function ensureDefaultsInitialized() {
 
             chrome.storage.sync.set(updates, () => {
                 if (chrome.runtime.lastError) {
-                    console.warn('Job Collector: unable to initialize defaults', chrome.runtime.lastError);
+                    console.warn('Job Tracker: unable to initialize defaults', chrome.runtime.lastError);
                 }
                 resolve();
             });
@@ -104,6 +105,10 @@ async function submitJobDetails(payload) {
         job_url: payload.jobUrl,
         page_title: payload.pageTitle,
         page_content: payload.pageContent,
+        user_id: settings.apiUserId || undefined,
+        linkedin_handle: payload.linkedinHandle || undefined,
+        linkedin_member_id: payload.linkedinMemberId || undefined,
+        status: 'tracking',
         notes: payload.notes || '',
         source: settings.sourceLabel || DEFAULT_EXTENSION_SETTINGS.sourceLabel,
         captured_at: new Date().toISOString()
@@ -139,7 +144,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 sendResponse({ success: true, result });
             })
             .catch((error) => {
-                console.error('Job Collector: failed to submit job', error);
+                console.error('Job Tracker: failed to submit job', error);
                 sendResponse({ success: false, error: error.message });
             });
         return true; // keep the channel open for async sendResponse

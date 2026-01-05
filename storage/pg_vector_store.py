@@ -144,8 +144,9 @@ class PgVectorStore:
                     UPDATE vector_documents
                     SET user_id = %s
                     WHERE user_id = %s AND collection_name = %s
+                    AND NOT (metadata->>'source' = 'linkedin-job-page' AND %s LIKE 'google_%%')
                     """,
-                    (self.user_id, LEGACY_DEFAULT_USER_ID, self.collection_name),
+                    (self.user_id, LEGACY_DEFAULT_USER_ID, self.collection_name, self.user_id),
                 )
                 conn.commit()
                 print(

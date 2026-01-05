@@ -8,6 +8,7 @@ Capture LinkedIn job details from the currently viewed job listing and send them
 - Backend API (GPT-mini) extracts company, role, and other metadata before inserting into the Job Search app.
 - Simple popup with a single "Add to my applications" action plus optional notes.
 - Configurable API endpoint, API key, and source label via the options page.
+- Options page now includes an **API User ID** field—set this to the same identifier (email) your Streamlit app uses so saved jobs appear under the correct profile.
 - Background service worker handles authenticated POST requests to the Job Search app.
 
 ## Structure

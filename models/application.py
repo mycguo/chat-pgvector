@@ -34,6 +34,7 @@ class Application:
     Job application tracking model.
 
     Statuses:
+    - tracking: Opportunity you're monitoring but haven't applied to yet
     - applied: Initial application submitted
     - screening: Phone/initial screening in progress
     - interview: Technical/onsite interview stage
@@ -64,7 +65,7 @@ class Application:
 
     def __post_init__(self):
         """Validate data after initialization"""
-        valid_statuses = ["applied", "screening", "interview", "offer", "accepted", "rejected", "withdrawn"]
+        valid_statuses = ["tracking", "applied", "screening", "interview", "offer", "accepted", "rejected", "withdrawn"]
         if self.status.lower() not in valid_statuses:
             raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
 
@@ -73,10 +74,14 @@ class Application:
 
         # Add initial event if timeline is empty
         if not self.timeline:
+            if self.status == "tracking":
+                initial_note = f"Tracking opportunity at {self.company} for {self.role}"
+            else:
+                initial_note = f"Applied to {self.company} for {self.role}"
             self.timeline.append(ApplicationEvent(
                 date=self.applied_date,
-                event_type="applied",
-                notes=f"Applied to {self.company} for {self.role}"
+                event_type=self.status,
+                notes=initial_note
             ))
 
     def to_dict(self) -> Dict:
@@ -141,11 +146,12 @@ class Application:
 
     def is_active(self) -> bool:
         """Check if application is still active"""
-        return self.status in ["applied", "screening", "interview", "offer"]
+        return self.status in ["tracking", "applied", "screening", "interview", "offer"]
 
     def get_status_emoji(self) -> str:
         """Get emoji representation of status"""
         emoji_map = {
+            "tracking": "📌",
             "applied": "📧",
             "screening": "📞",
             "interview": "💼",

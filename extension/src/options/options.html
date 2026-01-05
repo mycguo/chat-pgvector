@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Job Collector Settings</title>
+    <title>Job Tracker Settings</title>
     <link rel="stylesheet" href="options.css" />
 </head>
 <body>
     <main>
-        <h1>Job Collector Settings</h1>
+        <h1>Job Tracker Settings</h1>
         <p>Configure how the extension communicates with your Job Search application.</p>
         <form id="settings-form">
             <label>
@@ -22,12 +22,15 @@
                 Source label
                 <input type="text" id="source-label" placeholder="linkedin-job-page" />
             </label>
+            <label>
+                API User ID (email or custom)
+                <input type="text" id="api-user-id" placeholder="e.g., alice@example.com" />
+            </label>
             <button type="submit">Save settings</button>
             <p id="settings-status" role="status"></p>
         </form>
     </main>
 
-    <script src="../config.js"></script>
     <script src="options.js"></script>
 </body>
 </html>

@@ -489,12 +489,13 @@ class JobSearchDB:
 
         for app in applications:
             status = app.status
+            status_lower = status.lower()
             by_status[status] = by_status.get(status, 0) + 1
 
             if app.is_active():
                 active += 1
 
-            if status != "applied":
+            if status_lower not in ("tracking", "applied"):
                 responded += 1
 
                 # Calculate days to first response

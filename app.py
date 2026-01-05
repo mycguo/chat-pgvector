@@ -365,7 +365,7 @@ def add_interview_to_application(details):
             db.add_application_note(matching_app.id, interview_note)
 
             # Update status to interview if currently just applied or screening
-            if matching_app.status in ['applied', 'screening']:
+            if matching_app.status in ['tracking', 'applied', 'screening']:
                 db.update_status(matching_app.id, 'interview', interview_note)
                 return True, f"✅ Interview added to {details['company']} application and status updated to 'interview'"
             else:
@@ -515,7 +515,7 @@ def answer_data_query(question: str, query_type: str):
             active_count = 0
             for app in applications:
                 companies.add(app.company)
-                if app.status.lower() in ['applied', 'interview', 'offer']:
+                if app.status.lower() in ['tracking', 'applied', 'screening', 'interview', 'offer']:
                     active_count += 1
             
             answer = f"📝 **Your Applications:**\n\n"
@@ -529,6 +529,7 @@ def answer_data_query(question: str, query_type: str):
                 answer += f"\n📋 **Recent applications:**\n"
                 for app in recent_apps:
                     status_emoji = {
+                        'tracking': '📌',
                         'applied': '📝',
                         'interview': '📅',
                         'offer': '🎉',

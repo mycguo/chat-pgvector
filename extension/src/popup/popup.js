@@ -40,7 +40,7 @@ async function requestPageContent() {
 
     chrome.tabs.sendMessage(tab.id, { type: REQUEST_EVENT }, (response) => {
         if (chrome.runtime.lastError) {
-            console.warn('Job Collector: unable to reach content script', chrome.runtime.lastError);
+            console.warn('Job Tracker: unable to reach content script', chrome.runtime.lastError);
             setStatus('Reload the LinkedIn job page and try again.');
             return;
         }
@@ -86,7 +86,7 @@ function handleSaveClick() {
     chrome.runtime.sendMessage({ type: SAVE_EVENT, payload }, (response) => {
         saveButton.disabled = false;
         if (chrome.runtime.lastError) {
-            console.error('Job Collector: background error', chrome.runtime.lastError);
+            console.error('Job Tracker: background error', chrome.runtime.lastError);
             setStatus('Extension background is unavailable. Try again.', 'error');
             return;
         }

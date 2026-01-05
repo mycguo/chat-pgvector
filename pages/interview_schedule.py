@@ -381,7 +381,7 @@ def main():
                     if success:
                         # Also update status if it's just 'applied'
                         app = db.get_application(selected_app_id)
-                        if app and app.status == 'applied':
+                        if app and app.status in ['tracking', 'applied']:
                             db.update_status(selected_app_id, 'interview', "Status updated via Interview Schedule")
                             
                         st.success("✅ Interview scheduled successfully!")

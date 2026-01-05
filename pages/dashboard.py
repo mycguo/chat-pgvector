@@ -33,14 +33,14 @@ def calculate_metrics(db: JobSearchDB):
 
     # Calculate additional metrics
     total = len(apps)
-    active = len([a for a in apps if a.status in ['applied', 'screening', 'interview']])
+    active = len([a for a in apps if a.status in ['tracking', 'applied', 'screening', 'interview']])
     offers = len([a for a in apps if a.status == 'offer'])
     accepted = len([a for a in apps if a.status == 'accepted'])
     rejected = len([a for a in apps if a.status == 'rejected'])
     withdrawn = len([a for a in apps if a.status == 'withdrawn'])
 
     # Response rate (applications that progressed past "applied")
-    responded = len([a for a in apps if a.status not in ['applied']])
+    responded = len([a for a in apps if a.status not in ['tracking', 'applied']])
     response_rate = (responded / total * 100) if total > 0 else 0
 
     # Interview rate (got to interview stage)
@@ -85,17 +85,21 @@ def calculate_metrics(db: JobSearchDB):
 
 def create_pipeline_chart(metrics):
     """Create funnel chart for application pipeline"""
-    stages = ['Applied', 'Screening', 'Interview', 'Offer', 'Accepted']
+    tracking = metrics['by_status'].get('tracking', 0)
+    applied = metrics['by_status'].get('applied', 0)
+    screening = metrics['by_status'].get('screening', 0)
+    interview = metrics['by_status'].get('interview', 0)
+    offer = metrics['by_status'].get('offer', 0)
+    accepted = metrics['by_status'].get('accepted', 0)
+
+    stages = ['Tracking', 'Applied', 'Screening', 'Interview', 'Offer', 'Accepted']
     counts = [
-        metrics['by_status'].get('applied', 0) + metrics['by_status'].get('screening', 0) +
-        metrics['by_status'].get('interview', 0) + metrics['by_status'].get('offer', 0) +
-        metrics['by_status'].get('accepted', 0),
-        metrics['by_status'].get('screening', 0) + metrics['by_status'].get('interview', 0) +
-        metrics['by_status'].get('offer', 0) + metrics['by_status'].get('accepted', 0),
-        metrics['by_status'].get('interview', 0) + metrics['by_status'].get('offer', 0) +
-        metrics['by_status'].get('accepted', 0),
-        metrics['by_status'].get('offer', 0) + metrics['by_status'].get('accepted', 0),
-        metrics['by_status'].get('accepted', 0)
+        tracking + applied + screening + interview + offer + accepted,
+        applied + screening + interview + offer + accepted,
+        screening + interview + offer + accepted,
+        interview + offer + accepted,
+        offer + accepted,
+        accepted
     ]
 
     fig = go.Figure(go.Funnel(
@@ -103,7 +107,7 @@ def create_pipeline_chart(metrics):
         x=counts,
         textinfo="value+percent initial",
         marker=dict(
-            color=['#3498db', '#9b59b6', '#e74c3c', '#2ecc71', '#27ae60']
+            color=['#5c6ac4', '#3498db', '#9b59b6', '#e74c3c', '#2ecc71', '#27ae60']
         )
     ))
 
@@ -208,6 +212,15 @@ def get_action_items(apps):
 
     for app in apps:
         days_since_applied = app.get_days_since_applied()
+
+        # Encourage action on tracked roles
+        if app.status == 'tracking':
+            items.append({
+                'type': 'next_step',
+                'priority': 'high',
+                'message': f"Apply to {app.company} for {app.role}",
+                'app_id': app.id
+            })
 
         # Follow-up needed (applied > 7 days ago)
         if app.status == 'applied' and days_since_applied > 7:

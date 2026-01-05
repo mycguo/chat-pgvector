@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
-    "name": "Job Search Collector",
-    "short_name": "Job Collector",
+    "name": "Job Search Tracker",
+    "short_name": "Job Tracker",
     "description": "Capture LinkedIn job details and send them to the Job Search application.",
     "version": "0.1.0",
     "icons": {

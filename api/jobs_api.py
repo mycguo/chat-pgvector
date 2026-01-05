@@ -78,11 +78,13 @@ class JobsApiHandler(tornado.web.RequestHandler):
             return
 
         try:
-            db = JobSearchDB(user_id=_resolve_user_id(payload))
+            user_id = _resolve_user_id(payload)
+            db = JobSearchDB(user_id=user_id)
             parsed = extract_job_details(page_content, job_url=job_url)
             if not parsed.get("company") or not parsed.get("role"):
                 self._write_error(422, "Failed to extract company or role from job content.")
                 return
+            status_value = (payload.get("status") or "tracking").lower()
             application = create_application(
                 company=parsed["company"],
                 role=parsed["role"],
@@ -91,6 +93,7 @@ class JobsApiHandler(tornado.web.RequestHandler):
                 location=parsed.get("location"),
                 salary_range=parsed.get("salary_range"),
                 notes=notes_value,
+                status=status_value,
             )
             db.add_application(application)
         except ValueError as exc:
@@ -109,6 +112,13 @@ class JobsApiHandler(tornado.web.RequestHandler):
                 "role": application.role,
                 "parsed_job": parsed,
             }
+        )
+        LOGGER.info(
+            "Saved job via API: user=%s company=%s role=%s status=%s",
+            user_id,
+            application.company,
+            application.role,
+            application.status,
         )
 
     def _parse_body(self) -> Optional[Dict[str, Any]]:
@@ -130,9 +140,48 @@ class JobsApiHandler(tornado.web.RequestHandler):
 def _resolve_user_id(payload: Dict[str, Any]) -> str:
     """Determine which JobSearch user bucket should store this job."""
 
-    # Allow explicit override in payload, otherwise fall back to env/default
+    # 1. Allow explicit override in payload
     if payload.get("user_id"):
         return str(payload["user_id"]).strip()
+
+    # 2. Try explicit identity mapping for LinkedIn
+    linkedin_member_id = payload.get("linkedin_member_id")
+    linkedin_handle = payload.get("linkedin_handle")
+
+    if linkedin_member_id or linkedin_handle:
+        try:
+            from storage.pg_vector_store import PgVectorStore
+            # Search in the system-level mapping collection
+            store = PgVectorStore(collection_name="system_metadata", user_id="system")
+            
+            # Try member_id first (more robust)
+            if linkedin_member_id:
+                mappings = store.list_records(
+                    record_type="identity_mapping",
+                    filters={"linkedin_sub": str(linkedin_member_id)}
+                )
+                if mappings:
+                    target = mappings[0].get("target_user_id")
+                    LOGGER.info("Resolved user_id to %s via member_id %s", target, linkedin_member_id)
+                    return target
+
+            # Then try handle (guessing but better than nothing)
+            if linkedin_handle:
+                # We can't do exact match on the whole directory name easily without a list
+                # but we can look for it in the mapping table if we stored it
+                # For now, let's keep the legacy folder scan as a fallback
+                pass
+        except Exception as e:
+            LOGGER.warning("Identity mapping lookup failed: %s", e)
+
+    # 3. Legacy scan fallback for LinkedIn extension
+    if linkedin_handle:
+        user_data_dir = "user_data"
+        if os.path.exists(user_data_dir):
+            for dirname in os.listdir(user_data_dir):
+                if dirname.startswith("linkedin_") and linkedin_handle in dirname:
+                    LOGGER.info("Auto-resolved user_id to %s based on folder scan for %s", dirname, linkedin_handle)
+                    return dirname
 
     return os.getenv("JOB_SEARCH_API_USER_ID", "default_user")
 
