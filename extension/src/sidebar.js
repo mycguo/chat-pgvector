@@ -99,7 +99,7 @@
                         <img src="${chrome.runtime.getURL('assets/icons/icon48.png')}" alt="" />
                         <span class="brand-name">Job Tracker</span>
                     </div>
-                    <div id="jt-status-message" class="status">Ready to track</div>
+                    <div id="jt-status-message" class="status"></div>
                     <div id="jt-identity-info" class="identity" style="display: none;">
                         <span id="jt-identity-value"></span>
                     </div>
@@ -159,7 +159,7 @@
         userIdInput.addEventListener('input', () => {
             if (userIdInput.value.trim()) {
                 saveBtn.disabled = false;
-                setStatus('Ready to track');
+                setStatus('');
             } else {
                 saveBtn.disabled = true;
                 setStatus('Email required', 'error');
