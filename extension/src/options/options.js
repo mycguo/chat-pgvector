@@ -1,13 +1,9 @@
 const form = document.getElementById('settings-form');
 const endpointInput = document.getElementById('api-endpoint');
-const apiKeyInput = document.getElementById('api-key');
-const sourceLabelInput = document.getElementById('source-label');
 const statusEl = document.getElementById('settings-status');
 
 const DEFAULTS = {
-    apiEndpoint: 'http://localhost:8501/api/jobs',
-    apiKey: '',
-    sourceLabel: 'linkedin-job-page'
+    apiEndpoint: 'https://job-pgvector.streamlit.app/api/jobs'
 };
 
 function getSettings() {
@@ -38,8 +34,6 @@ function saveSettings(updates) {
 async function loadSettings() {
     const settings = await getSettings();
     endpointInput.value = settings.apiEndpoint;
-    apiKeyInput.value = settings.apiKey;
-    sourceLabelInput.value = settings.sourceLabel;
 }
 
 function showStatus(message, type = 'info') {
@@ -53,9 +47,7 @@ form.addEventListener('submit', async (event) => {
 
     try {
         await saveSettings({
-            apiEndpoint: endpointInput.value.trim() || DEFAULTS.apiEndpoint,
-            apiKey: apiKeyInput.value.trim(),
-            sourceLabel: sourceLabelInput.value.trim() || DEFAULTS.sourceLabel
+            apiEndpoint: endpointInput.value.trim() || DEFAULTS.apiEndpoint
         });
         showStatus('Settings saved successfully.', 'success');
     } catch (error) {

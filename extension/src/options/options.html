@@ -14,15 +14,8 @@
         <form id="settings-form">
             <label>
                 API Endpoint
-                <input type="url" id="api-endpoint" placeholder="http://localhost:8501/api/jobs" required />
-            </label>
-            <label>
-                API Key (optional)
-                <input type="text" id="api-key" placeholder="Bearer token or custom secret" />
-            </label>
-            <label>
-                Source label
-                <input type="text" id="source-label" placeholder="linkedin-job-page" />
+                <input type="url" id="api-endpoint" placeholder="https://job-pgvector.streamlit.app/api/jobs"
+                    required />
             </label>
             <button type="submit">Save settings</button>
             <p id="settings-status" role="status"></p>

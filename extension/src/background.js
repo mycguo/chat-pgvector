@@ -1,7 +1,5 @@
 const DEFAULT_EXTENSION_SETTINGS = {
-    apiEndpoint: "http://localhost:8501/api/jobs",
-    apiKey: "",
-    sourceLabel: "linkedin-job-page",
+    apiEndpoint: "https://job-pgvector.streamlit.app/api/jobs",
     apiUserId: ""
 };
 
@@ -97,20 +95,15 @@ async function submitJobDetails(payload) {
         'Content-Type': 'application/json'
     };
 
-    if (settings.apiKey) {
-        headers['Authorization'] = `Bearer ${settings.apiKey}`;
-    }
-
     const body = {
         job_url: payload.jobUrl,
         page_title: payload.pageTitle,
         page_content: payload.pageContent,
-        user_id: settings.apiUserId || undefined,
+        user_id: payload.userId || settings.apiUserId || undefined,
         linkedin_handle: payload.linkedinHandle || undefined,
         linkedin_member_id: payload.linkedinMemberId || undefined,
         status: 'tracking',
         notes: payload.notes || '',
-        source: settings.sourceLabel || DEFAULT_EXTENSION_SETTINGS.sourceLabel,
         captured_at: new Date().toISOString()
     };
 
