@@ -127,6 +127,11 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'OPEN_OPTIONS') {
+        chrome.runtime.openOptionsPage();
+        return false;
+    }
+
     if (!message || !message.type) {
         return false;
     }

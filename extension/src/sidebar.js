@@ -107,27 +107,37 @@
                 
                 <div class="card-right">
                     <div class="inputs">
-                        <input type="email" id="jt-api-user-id" placeholder="Account Email" />
-                        <textarea id="jt-job-notes" placeholder="Add a quick note..."></textarea>
+                        <div class="input-group">
+                            <label for="jt-api-user-id" class="field-label">LinkedIn Email</label>
+                            <input type="email" id="jt-api-user-id" placeholder="your@email.com" />
+                        </div>
                     </div>
                     <button id="jt-save-btn" disabled>Add to Applications</button>
                 </div>
+            </div>
+            <div class="card-footer-meta">
+                <button id="jt-settings-btn" class="secondary-btn">Settings</button>
+            </div>
             </div>
         `;
         shadow.appendChild(container);
 
         // UI Elements
         const userIdInput = shadow.getElementById('jt-api-user-id');
-        const notesEl = shadow.getElementById('jt-job-notes');
         const saveBtn = shadow.getElementById('jt-save-btn');
         const statusMsg = shadow.getElementById('jt-status-message');
         const identitySection = shadow.getElementById('jt-identity-info');
         const identityValue = shadow.getElementById('jt-identity-value');
+        const settingsBtn = shadow.getElementById('jt-settings-btn');
 
         function setStatus(text, type = 'info') {
             statusMsg.textContent = text;
             statusMsg.setAttribute('data-variant', type);
         }
+
+        settingsBtn.addEventListener('click', () => {
+            chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' });
+        });
 
         currentSettings = await getSettings();
         userIdInput.value = currentSettings.apiUserId || '';
@@ -174,14 +184,13 @@
                 pageTitle: currentPageData.title,
                 pageContent: currentPageData.fullText,
                 userId: userId,
-                notes: notesEl.value.trim()
+                notes: ''
             };
 
             chrome.runtime.sendMessage({ type: SAVE_EVENT, payload }, (response) => {
                 saveBtn.disabled = false;
                 if (response && response.success) {
                     setStatus('Saved! 🎉', 'success');
-                    notesEl.value = '';
                 } else {
                     setStatus('Failed', 'error');
                 }
