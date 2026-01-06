@@ -100,9 +100,6 @@
                         <span class="brand-name">Job Tracker</span>
                     </div>
                     <div id="jt-status-message" class="status"></div>
-                    <div id="jt-identity-info" class="identity" style="display: none;">
-                        <span id="jt-identity-value"></span>
-                    </div>
                 </div>
                 
                 <div class="card-right">
@@ -126,8 +123,6 @@
         const userIdInput = shadow.getElementById('jt-api-user-id');
         const saveBtn = shadow.getElementById('jt-save-btn');
         const statusMsg = shadow.getElementById('jt-status-message');
-        const identitySection = shadow.getElementById('jt-identity-info');
-        const identityValue = shadow.getElementById('jt-identity-value');
         const settingsBtn = shadow.getElementById('jt-settings-btn');
 
         function setStatus(text, type = 'info') {
@@ -141,13 +136,7 @@
 
         currentSettings = await getSettings();
         userIdInput.value = currentSettings.apiUserId || '';
-
         currentPageData = capturePageContent();
-
-        if (currentPageData.linkedinHandle || currentPageData.linkedinMemberId) {
-            identitySection.style.display = 'block';
-            identityValue.textContent = currentPageData.linkedinHandle || `ID: ${currentPageData.linkedinMemberId}`;
-        }
 
         if (userIdInput.value.trim()) {
             saveBtn.disabled = false;

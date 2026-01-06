@@ -61,20 +61,6 @@
     font-weight: 700;
 }
 
-.identity {
-    font-size: 0.9rem;
-    color: #1d4ed8;
-    background: #eff6ff;
-    padding: 4px 8px;
-    border-radius: 6px;
-    border: 1px solid #bfdbfe;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-top: 4px;
-}
-
 .card-right {
     flex: 1;
     display: flex;
