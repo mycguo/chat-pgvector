@@ -74,16 +74,16 @@ def get_user_id() -> str:
         try:
             if hasattr(st, 'user'):
                 if hasattr(st.user, 'email') and st.user.email:
-                    user_identifier = st.user.email
+                    user_identifier = f"google_{st.user.email}"
                 elif hasattr(st.user, 'name') and st.user.name:
-                    user_identifier = st.user.name
+                    user_identifier = f"google_{st.user.name}"
                 elif hasattr(st.user, 'id') and st.user.id:
-                    user_identifier = str(st.user.id)
+                    user_identifier = f"google_{str(st.user.id)}"
                 else:
                     # Fallback: generate hash from user object
                     try:
                         user_str = str(st.user.__dict__)
-                        user_identifier = hashlib.md5(user_str.encode()).hexdigest()
+                        user_identifier = f"google_{hashlib.md5(user_str.encode()).hexdigest()}"
                     except:
                         pass
         except (AttributeError, KeyError):
