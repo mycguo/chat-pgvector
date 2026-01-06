@@ -1,5 +1,5 @@
 const DEFAULT_EXTENSION_SETTINGS = {
-    apiEndpoint: "https://job-pgvector.streamlit.app/api/jobs",
+    apiEndpoint: "https://jobmaster.streamlit.app/api/jobs",
     apiUserId: ""
 };
 

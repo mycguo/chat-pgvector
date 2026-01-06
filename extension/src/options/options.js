@@ -3,7 +3,7 @@ const endpointInput = document.getElementById('api-endpoint');
 const statusEl = document.getElementById('settings-status');
 
 const DEFAULTS = {
-    apiEndpoint: 'https://job-pgvector.streamlit.app/api/jobs'
+    apiEndpoint: 'https://jobmaster.streamlit.app/api/jobs'
 };
 
 function getSettings() {
