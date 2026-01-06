@@ -175,4 +175,12 @@ openOptionsBtn.addEventListener('click', () => {
 saveButton.addEventListener('click', handleSaveClick);
 document.addEventListener('DOMContentLoaded', () => {
     requestPageContent();
+
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName === 'sync' && changes.apiUserId) {
+            userIdInput.value = changes.apiUserId.newValue || '';
+            currentSettings.apiUserId = userIdInput.value;
+            updateSaveButtonState();
+        }
+    });
 });

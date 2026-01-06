@@ -155,6 +155,11 @@
             }
         });
 
+        userIdInput.addEventListener('blur', () => {
+            const trimmed = userIdInput.value.trim();
+            chrome.storage.sync.set({ apiUserId: trimmed });
+        });
+
         saveBtn.addEventListener('click', async () => {
             const userId = userIdInput.value.trim();
             if (!userId) return;
