@@ -93,28 +93,24 @@
         const container = document.createElement('div');
         container.id = 'jt-card-container';
         container.innerHTML = `
-            <div class="card-inner">
-                <div class="card-left">
-                    <div class="brand">
-                        <img src="${chrome.runtime.getURL('assets/icons/icon48.png')}" alt="" />
-                        <span class="brand-name">Job Tracker</span>
-                    </div>
-                    <div id="jt-status-message" class="status"></div>
+            <div class="card-row">
+                <div class="brand-section">
+                    <img src="${chrome.runtime.getURL('assets/icons/icon48.png')}" alt="" />
+                    <span class="brand-name">Job Tracker</span>
                 </div>
                 
-                <div class="card-right">
-                    <div class="inputs">
-                        <div class="input-group">
-                            <label for="jt-api-user-id" class="field-label">LinkedIn Email</label>
-                            <input type="email" id="jt-api-user-id" placeholder="your@email.com" />
-                        </div>
+                <div class="action-section">
+                    <div class="input-group">
+                        <label for="jt-api-user-id" class="field-label">LinkedIn Email</label>
+                        <input type="email" id="jt-api-user-id" placeholder="your@email.com" />
                     </div>
                     <button id="jt-save-btn" disabled>Add to Applications</button>
+                    <div id="jt-status-message" class="status"></div>
                 </div>
-            </div>
-            <div class="card-footer-meta">
-                <button id="jt-settings-btn" class="secondary-btn">Settings</button>
-            </div>
+
+                <div class="meta-section">
+                    <button id="jt-settings-btn" class="secondary-btn" title="Settings">⚙️</button>
+                </div>
             </div>
         `;
         shadow.appendChild(container);
