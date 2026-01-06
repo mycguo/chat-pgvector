@@ -93,25 +93,28 @@
         const container = document.createElement('div');
         container.id = 'jt-card-container';
         container.innerHTML = `
-            <div class="card-row">
-                <div class="brand-section">
-                    <img src="${chrome.runtime.getURL('assets/icons/icon48.png')}" alt="" />
-                    <span class="brand-name">Job Tracker</span>
-                </div>
-                
-                <div class="action-section">
-                    <div class="input-group">
-                        <label for="jt-api-user-id" class="field-label">LinkedIn Email</label>
-                        <input type="email" id="jt-api-user-id" placeholder="your@email.com" />
+            <section class="jt-card">
+                <header class="jt-header">
+                    <div class="jt-brand">
+                        <img src="${chrome.runtime.getURL('assets/icons/icon48.png')}" alt="Job Tracker" />
+                        <div>
+                            <h2>Job Tracker</h2>
+                            <p>Log this LinkedIn opportunity</p>
+                        </div>
                     </div>
-                    <button id="jt-save-btn" disabled>Add to Applications</button>
-                    <div id="jt-status-message" class="status"></div>
+                    <button id="jt-settings-btn" class="jt-icon-btn" title="Settings">⚙️</button>
+                </header>
+
+                <div class="jt-body">
+                    <label for="jt-api-user-id">LinkedIn Email</label>
+                    <input type="email" id="jt-api-user-id" placeholder="you@example.com" />
                 </div>
 
-                <div class="meta-section">
-                    <button id="jt-settings-btn" class="secondary-btn" title="Settings">⚙️</button>
+                <div class="jt-actions">
+                    <button id="jt-save-btn" disabled>Add to https://jobmaster.streamlit.app/</button>
+                    <p id="jt-status-message" class="status"></p>
                 </div>
-            </div>
+            </section>
         `;
         shadow.appendChild(container);
 
@@ -136,18 +139,19 @@
 
         if (userIdInput.value.trim()) {
             saveBtn.disabled = false;
+            setStatus('Ready to add this job.');
         } else {
-            setStatus('Email required', 'error');
+            setStatus('Account email required.', 'warning');
         }
 
         // --- Events ---
         userIdInput.addEventListener('input', () => {
             if (userIdInput.value.trim()) {
                 saveBtn.disabled = false;
-                setStatus('');
+                setStatus('Ready to add this job.');
             } else {
                 saveBtn.disabled = true;
-                setStatus('Email required', 'error');
+                setStatus('Account email required.', 'warning');
             }
         });
 
@@ -161,7 +165,7 @@
             }
 
             saveBtn.disabled = true;
-            setStatus('Saving...');
+            setStatus('Sending job to JobMaster...');
 
             const payload = {
                 ...currentPageData,
@@ -175,9 +179,9 @@
             chrome.runtime.sendMessage({ type: SAVE_EVENT, payload }, (response) => {
                 saveBtn.disabled = false;
                 if (response && response.success) {
-                    setStatus('Saved! 🎉', 'success');
+                    setStatus('Job added successfully! 🎉', 'success');
                 } else {
-                    setStatus('Failed', 'error');
+                    setStatus(response?.error || 'Failed to save job.', 'error');
                 }
             });
         });

@@ -8,42 +8,40 @@
 </head>
 
 <body>
-    <header>
-        <img src="../../assets/icons/icon48.png" alt="Job Tracker" />
-        <div>
-            <h1>Job Tracker</h1>
-            <p>Add LinkedIn jobs to your tracker.</p>
-        </div>
-    </header>
+    <section class="card">
+        <header>
+            <img src="../../assets/icons/icon48.png" alt="Job Tracker" />
+            <div>
+                <h1>Job Tracker</h1>
+                <p>Log jobs directly from LinkedIn.</p>
+            </div>
+            <button id="open-options" class="icon-button" title="Settings">
+                ⚙️
+            </button>
+        </header>
 
-    <section id="page-info">
-        <span class="label">Current Page</span>
-        <p id="page-title" class="value">Detecting job page...</p>
-        <p id="page-url" class="value subtext"></p>
+        <section id="user-info">
+            <label for="api-user-id">LinkedIn Email</label>
+            <input type="email" id="api-user-id" placeholder="you@example.com" />
+        </section>
+
+        <section id="page-info">
+            <span class="label">Current Page</span>
+            <p id="page-title" class="value">Detecting job page...</p>
+            <p id="page-url" class="value subtext"></p>
+        </section>
+
+        <section id="notes-section">
+            <label for="job-notes">Notes (optional)</label>
+            <textarea id="job-notes" rows="3" placeholder="Reminders, interview prep, referrals..."></textarea>
+        </section>
+
+        <section id="actions">
+            <button id="save-job" class="primary" disabled>Add to https://jobmaster.streamlit.app/</button>
+            <p id="status-message">Open a LinkedIn job post to capture details.</p>
+        </section>
     </section>
 
-    <section id="identity-info" style="display: none;">
-        <span class="label">Detected Identity</span>
-        <p id="identity-value" class="value">None</p>
-    </section>
-
-    <section id="user-info">
-        <label for="api-user-id">Account Email</label>
-        <input type="email" id="api-user-id" placeholder="your@email.com" />
-    </section>
-
-    <section id="notes-section">
-        <label for="job-notes">Notes (optional)</label>
-        <textarea id="job-notes" rows="4" placeholder="Interview stage, referral, reminders..."></textarea>
-    </section>
-
-    <section id="actions">
-        <button id="save-job" disabled>Add to my applications</button>
-        <button id="open-options" class="secondary">Settings</button>
-        <p id="status-message">Open a LinkedIn job post and wait a moment.</p>
-    </section>
-
-    <script src="../config.js"></script>
     <script src="popup.js"></script>
 </body>
 
