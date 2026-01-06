@@ -29,7 +29,8 @@
     ],
     "host_permissions": [
         "https://www.linkedin.com/*",
-        "http://localhost:8501/api/jobs"
+        "https://jobmaster.streamlit.app/api/jobs",
+        "https://job-pgvector.streamlit.app/api/jobs"
     ],
     "content_scripts": [
         {
